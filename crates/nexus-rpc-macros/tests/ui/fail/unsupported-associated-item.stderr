@@ -1,0 +1,5 @@
+error: nexus services only support operation method declarations
+  --> tests/ui/fail/unsupported-associated-item.rs:11:5
+   |
+11 |     const VERSION: usize;
+   |     ^^^^^^^^^^^^^^^^^^^^^

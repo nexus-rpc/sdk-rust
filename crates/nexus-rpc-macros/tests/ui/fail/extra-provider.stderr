@@ -1,0 +1,44 @@
+error[E0405]: cannot find trait `__NexusBind_extra` in module `__nexus_service_metadata_for_ExampleService`
+  --> tests/ui/fail/extra-provider.rs:46:8
+   |
+11 | #[nexus_service]
+   | ---------------- similarly named trait `__NexusBind_ping` defined here
+...
+46 |     fn extra(&self) -> &PingHandler {
+   |        ^^^^^
+   |
+help: a trait with a similar name exists
+   |
+46 -     fn extra(&self) -> &PingHandler {
+46 +     fn __NexusBind_ping(&self) -> &PingHandler {
+   |
+
+error[E0425]: cannot find type `__NexusInput_extra` in module `__nexus_service_metadata_for_ExampleService`
+  --> tests/ui/fail/extra-provider.rs:46:8
+   |
+11 | #[nexus_service]
+   | ---------------- similarly named type alias `__NexusInput_ping` defined here
+...
+46 |     fn extra(&self) -> &PingHandler {
+   |        ^^^^^
+   |
+help: a type alias with a similar name exists
+   |
+46 -     fn extra(&self) -> &PingHandler {
+46 +     fn __NexusInput_ping(&self) -> &PingHandler {
+   |
+
+error[E0425]: cannot find type `__NexusOutput_extra` in module `__nexus_service_metadata_for_ExampleService`
+  --> tests/ui/fail/extra-provider.rs:46:8
+   |
+11 | #[nexus_service]
+   | ---------------- similarly named type alias `__NexusOutput_ping` defined here
+...
+46 |     fn extra(&self) -> &PingHandler {
+   |        ^^^^^
+   |
+help: a type alias with a similar name exists
+   |
+46 -     fn extra(&self) -> &PingHandler {
+46 +     fn __NexusOutput_ping(&self) -> &PingHandler {
+   |

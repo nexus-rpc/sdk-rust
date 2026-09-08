@@ -1,0 +1,49 @@
+error[E0277]: the trait bound `ExampleHandlers: __NexusBind_ping` is not satisfied
+  --> tests/ui/fail/missing-provider.rs:17:1
+   |
+17 | #[nexus_service_handler(service = ExampleService)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+   |
+help: the trait `__NexusBind_ping` is not implemented for `ExampleHandlers`
+  --> tests/ui/fail/missing-provider.rs:15:1
+   |
+15 | struct ExampleHandlers;
+   | ^^^^^^^^^^^^^^^^^^^^^^
+help: this trait has no implementations, consider adding one
+  --> tests/ui/fail/missing-provider.rs:9:1
+   |
+ 9 | #[nexus_service]
+   | ^^^^^^^^^^^^^^^^
+   = help: see issue #48214
+   = note: this error originates in the attribute macro `nexus_service_handler` which comes from the expansion of the attribute macro `nexus_service` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `ExampleHandlers: __NexusAllBindings` is not satisfied
+  --> tests/ui/fail/missing-provider.rs:18:6
+   |
+18 | impl ExampleHandlers {}
+   |      ^^^^^^^^^^^^^^^ unsatisfied trait bound
+   |
+help: the trait `__NexusBind_ping` is not implemented for `ExampleHandlers`
+  --> tests/ui/fail/missing-provider.rs:15:1
+   |
+15 | struct ExampleHandlers;
+   | ^^^^^^^^^^^^^^^^^^^^^^
+help: this trait has no implementations, consider adding one
+  --> tests/ui/fail/missing-provider.rs:9:1
+   |
+ 9 | #[nexus_service]
+   | ^^^^^^^^^^^^^^^^
+note: required for `ExampleHandlers` to implement `__NexusAllBindings`
+  --> tests/ui/fail/missing-provider.rs:9:1
+   |
+ 9 | #[nexus_service]
+   | ^^^^^^^^^^^^^^^^
+...
+12 |     fn ping(input: ()) -> ();
+   |        ---- unsatisfied trait bound introduced here
+note: required by a bound in `__assert_bindings`
+  --> tests/ui/fail/missing-provider.rs:17:1
+   |
+17 | #[nexus_service_handler(service = ExampleService)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `__assert_bindings`
+   = note: this error originates in the attribute macro `nexus_service` which comes from the expansion of the attribute macro `nexus_service_handler` (in Nightly builds, run with -Z macro-backtrace for more info)

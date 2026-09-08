@@ -1,0 +1,5 @@
+error: expected `name = "..."`
+ --> tests/ui/fail/malformed-service-attr.rs:9:17
+  |
+9 | #[nexus_service(service = "bad")]
+  |                 ^^^^^^^

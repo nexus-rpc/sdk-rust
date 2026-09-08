@@ -1,0 +1,17 @@
+[package]
+name = "nexus-rpc"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+readme.workspace = true
+description = "Minimal Nexus authoring primitives and typed registration SPI"
+repository = "https://github.com/nexus-rpc/sdk-rust"
+homepage = "https://github.com/nexus-rpc/sdk-rust"
+documentation = "https://docs.rs/nexus-rpc"
+
+[dependencies]
+nexus-rpc-macros = { path = "../nexus-rpc-macros", version = "0.1.0" }
+
+[lints]
+workspace = true

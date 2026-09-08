@@ -1,0 +1,5 @@
+error: operation wire name cannot be empty
+  --> tests/ui/fail/empty-operation-name.rs:11:30
+   |
+11 |     #[nexus_operation(name = "")]
+   |                              ^^

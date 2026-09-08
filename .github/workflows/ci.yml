@@ -1,0 +1,69 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  fmt:
+    name: fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.94
+        with:
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.94
+      - run: cargo check --workspace --all-targets --all-features
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.94
+        with:
+          components: clippy
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.94
+      - run: cargo test --workspace --all-features
+
+  docs:
+    name: docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.94
+      - run: RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps
+
+  msrv:
+    name: msrv
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.92.0
+      - run: cargo +1.92.0 check --workspace --all-targets
+
+  package:
+    name: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.94
+      - run: cargo package -p nexus-rpc-macros
+      - run: cargo package -p nexus-rpc --list

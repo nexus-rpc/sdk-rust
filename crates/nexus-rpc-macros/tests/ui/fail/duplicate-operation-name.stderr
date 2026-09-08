@@ -1,0 +1,11 @@
+error: duplicate operation wire name `same`
+  --> tests/ui/fail/duplicate-operation-name.rs:14:30
+   |
+14 |     #[nexus_operation(name = "same")]
+   |                              ^^^^^^
+
+error: previous operation with the same wire name
+  --> tests/ui/fail/duplicate-operation-name.rs:11:30
+   |
+11 |     #[nexus_operation(name = "same")]
+   |                              ^^^^^^

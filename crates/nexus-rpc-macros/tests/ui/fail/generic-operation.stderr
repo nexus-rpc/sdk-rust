@@ -1,0 +1,5 @@
+error: nexus operations do not support generics or lifetimes
+  --> tests/ui/fail/generic-operation.rs:12:12
+   |
+12 |     fn ping<T>(input: T) -> ();
+   |            ^^^

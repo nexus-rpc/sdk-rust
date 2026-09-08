@@ -1,0 +1,5 @@
+error: nexus operation providers must take only `&self`
+  --> tests/ui/fail/invalid-provider-shape.rs:40:13
+   |
+40 |     fn ping(&self, _unused: ()) -> &PingHandler {
+   |             ^^^^^^^^^^^^^^^^^^
