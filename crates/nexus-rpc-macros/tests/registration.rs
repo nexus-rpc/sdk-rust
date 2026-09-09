@@ -165,6 +165,24 @@ trait PaymentService {
     fn ping(input: ()) -> ();
 }
 
+#[nexus_service]
+trait IdentifierService {
+    fn r#type(input: ()) -> ();
+    fn foo(input: ()) -> ();
+    #[allow(non_snake_case)]
+    fn FOO(input: ()) -> ();
+}
+
+#[test]
+fn supports_raw_and_case_distinct_operation_identifiers() {
+    let names: Vec<_> = __nexus_service_metadata_for_IdentifierService::__NEXUS_OPERATION_INFOS
+        .iter()
+        .map(|info| info.rust_name)
+        .collect();
+
+    assert_eq!(names, ["type", "foo", "FOO"]);
+}
+
 struct CountingHandler {
     starts: Arc<AtomicUsize>,
     cancels: Arc<AtomicUsize>,

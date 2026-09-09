@@ -110,6 +110,8 @@ EchoService.register(&mut registrar);
 ```
 "#]
 
+extern crate self as nexus_rpc;
+
 mod error;
 mod handler;
 mod operation;

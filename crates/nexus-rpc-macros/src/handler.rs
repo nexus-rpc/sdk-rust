@@ -1,10 +1,12 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
+use syn::ext::IdentExt;
 use syn::{Error, ImplItem, ImplItemFn, ItemImpl};
 
 use crate::parse::{
     combine_errors, error_tokens, expect_no_args, is_temporal_operation_attr,
-    parse_service_handler_args, strip_attr, trait_path_to_helper_module, validate_provider_method,
+    parse_service_handler_args, path_ends_with_ident, runtime_crate_path, strip_attr,
+    trait_path_to_helper_module, validate_provider_method,
 };
 
 pub(crate) fn expand_nexus_service_handler(args: TokenStream, item: TokenStream) -> TokenStream {
@@ -36,6 +38,7 @@ fn expand_nexus_service_handler_inner(
 
     let helper_module = trait_path_to_helper_module(&service_args.service)?;
     let self_ty = (*impl_item.self_ty).clone();
+    let runtime = runtime_crate_path();
 
     let mut provider_impls = Vec::new();
     let mut provider_assertions = Vec::new();
@@ -49,7 +52,7 @@ fn expand_nexus_service_handler_inner(
         let has_marker = method
             .attrs
             .iter()
-            .any(|attr| attr.path().is_ident("nexus_operation_handler"));
+            .any(|attr| path_ends_with_ident(attr.path(), "nexus_operation_handler"));
         let is_extension_candidate =
             !has_marker && method.attrs.iter().any(is_temporal_operation_attr);
 
@@ -65,12 +68,12 @@ fn expand_nexus_service_handler_inner(
         method.attrs = strip_attr(&method.attrs, "nexus_operation_handler");
 
         let method_ident = method.sig.ident.clone();
-        let binding_trait = format_ident!("__NexusBind_{}", method_ident);
-        let input_ident = format_ident!("__NexusInput_{}", method_ident);
-        let output_ident = format_ident!("__NexusOutput_{}", method_ident);
+        let binding_trait = format_ident!("__NexusBind_{}", method_ident.unraw());
+        let input_ident = format_ident!("__NexusInput_{}", method_ident.unraw());
+        let output_ident = format_ident!("__NexusOutput_{}", method_ident.unraw());
         provider_impls.push(quote! {
             impl #helper_module::#binding_trait for #self_ty {
-                fn #method_ident(&self) -> impl ::nexus_rpc::OperationHandler<
+                fn #method_ident(&self) -> impl #runtime::OperationHandler<
                     #helper_module::#input_ident,
                     #helper_module::#output_ident
                 > + '_ {
@@ -102,18 +105,18 @@ fn expand_nexus_service_handler_inner(
 
         #( #provider_impls )*
 
-        impl ::nexus_rpc::ServiceHandler for #self_ty
+        impl #runtime::ServiceHandler for #self_ty
         where
             #self_ty: #helper_module::__NexusAllBindings,
         {
-            fn definition() -> &'static ::nexus_rpc::ServiceDefinition {
+            fn definition() -> &'static #runtime::ServiceDefinition {
                 &#helper_module::__NEXUS_SERVICE_DEFINITION
             }
 
             fn register<R>(self, registrar: &mut R)
             where
                 Self: Sized,
-                R: ::nexus_rpc::integration::OperationRegistrar,
+                R: #runtime::integration::OperationRegistrar,
             {
                 #helper_module::register(self, registrar);
             }

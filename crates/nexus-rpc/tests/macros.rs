@@ -7,7 +7,7 @@ use nexus_rpc::{
 #[nexus_service(name = "echo-service")]
 #[allow(dead_code)]
 trait EchoService {
-    #[nexus_operation(name = "echo-message")]
+    #[nexus_rpc::nexus_operation(name = "echo-message")]
     fn echo(input: String) -> String;
 }
 
@@ -33,7 +33,7 @@ struct EchoServiceHandler {
 
 #[nexus_service_handler(service = EchoService)]
 impl EchoServiceHandler {
-    #[nexus_operation_handler]
+    #[nexus_rpc::nexus_operation_handler]
     fn echo(&self) -> impl OperationHandler<String, String> + '_ {
         &self.echo
     }

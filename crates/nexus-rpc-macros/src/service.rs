@@ -1,10 +1,11 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
+use syn::ext::IdentExt;
 use syn::{Error, ItemTrait, LitStr, TraitItem, TraitItemFn};
 
 use crate::parse::{
     combine_errors, error_tokens, extract_operation_signature, parse_methods_from_trait,
-    parse_name_list, parse_name_override, strip_attr, validate_trait,
+    parse_name_list, parse_name_override, runtime_crate_path, strip_attr, validate_trait,
 };
 
 struct OperationSpec {
@@ -43,51 +44,46 @@ fn expand_nexus_service_inner(args: TokenStream, item: TokenStream) -> syn::Resu
 
     let vis = trait_item.vis.clone();
     let trait_ident = trait_item.ident.clone();
-    let helper_module = format_ident!("__nexus_service_metadata_for_{}", trait_ident);
+    let helper_module = format_ident!("__nexus_service_metadata_for_{}", trait_ident.unraw());
+    let runtime = runtime_crate_path();
     let binding_trait_names: Vec<_> = operations
         .iter()
-        .map(|op| format_ident!("__NexusBind_{}", op.method.sig.ident))
+        .map(|op| format_ident!("__NexusBind_{}", op.method.sig.ident.unraw()))
         .collect();
     let input_type_names: Vec<_> = operations
         .iter()
-        .map(|op| format_ident!("__NexusInput_{}", op.method.sig.ident))
+        .map(|op| format_ident!("__NexusInput_{}", op.method.sig.ident.unraw()))
         .collect();
     let output_type_names: Vec<_> = operations
         .iter()
-        .map(|op| format_ident!("__NexusOutput_{}", op.method.sig.ident))
+        .map(|op| format_ident!("__NexusOutput_{}", op.method.sig.ident.unraw()))
         .collect();
 
     let info_names: Vec<_> = operations
         .iter()
-        .map(|op| {
-            format_ident!(
-                "__NEXUS_INFO_{}",
-                op.method.sig.ident.to_string().to_uppercase()
-            )
-        })
+        .enumerate()
+        .map(|(index, _)| format_ident!("__NEXUS_INFO_{index}"))
         .collect();
     let def_names: Vec<_> = operations
         .iter()
-        .map(|op| {
-            format_ident!(
-                "__NEXUS_DEF_{}",
-                op.method.sig.ident.to_string().to_uppercase()
-            )
-        })
+        .enumerate()
+        .map(|(index, _)| format_ident!("__NEXUS_DEF_{index}"))
         .collect();
 
     let operation_infos: Vec<_> = operations
         .iter()
         .zip(info_names.iter())
         .map(|(op, info_ident)| {
-            let rust_name =
-                LitStr::new(&op.method.sig.ident.to_string(), op.method.sig.ident.span());
+            let rust_name = LitStr::new(
+                &op.method.sig.ident.unraw().to_string(),
+                op.method.sig.ident.span(),
+            );
             let wire_name = &op.wire_name;
             let (input_ty, output_ty) = extract_operation_signature(&op.method)?;
             Ok(quote! {
                 #[doc(hidden)]
-                pub static #info_ident: ::nexus_rpc::integration::OperationDefinitionInfo =
-                    ::nexus_rpc::integration::OperationDefinitionInfo::new(
+                pub static #info_ident: #runtime::integration::OperationDefinitionInfo =
+                    #runtime::integration::OperationDefinitionInfo::new(
                         #rust_name,
                         #wire_name,
                         ::core::stringify!(#input_ty),
@@ -119,8 +115,8 @@ fn expand_nexus_service_inner(args: TokenStream, item: TokenStream) -> syn::Resu
             let (input_ty, output_ty) = extract_operation_signature(&op.method)?;
             Ok(quote! {
                 #[doc(hidden)]
-                pub static #def_ident: ::nexus_rpc::OperationDefinition<#input_ty, #output_ty> =
-                    ::nexus_rpc::OperationDefinition::new(&#info_ident);
+                pub static #def_ident: #runtime::OperationDefinition<#input_ty, #output_ty> =
+                    #runtime::OperationDefinition::new(&#info_ident);
             })
         })
         .collect::<syn::Result<_>>()?;
@@ -139,7 +135,7 @@ fn expand_nexus_service_inner(args: TokenStream, item: TokenStream) -> syn::Resu
                 pub trait #binding_trait {
                     fn #method_ident(
                         &self,
-                    ) -> impl ::nexus_rpc::OperationHandler<#input_ident, #output_ident> + '_;
+                    ) -> impl #runtime::OperationHandler<#input_ident, #output_ident> + '_;
                 }
             })
         })
@@ -150,7 +146,7 @@ fn expand_nexus_service_inner(args: TokenStream, item: TokenStream) -> syn::Resu
         .zip(binding_trait_names.iter().zip(def_names.iter()))
         .map(|(op, (binding_trait, def_ident))| {
             let method_ident = &op.method.sig.ident;
-            let registered_ident = format_ident!("__NexusRegistered_{}", method_ident);
+            let registered_ident = format_ident!("__NexusRegistered_{}", method_ident.unraw());
             let (input_ty, output_ty) = extract_operation_signature(&op.method)?;
             Ok(quote! {
                 #[doc(hidden)]
@@ -158,17 +154,17 @@ fn expand_nexus_service_inner(args: TokenStream, item: TokenStream) -> syn::Resu
                     service: ::std::sync::Arc<S>,
                 }
 
-                impl<S> ::nexus_rpc::OperationHandler<#input_ty, #output_ty> for #registered_ident<S>
+                impl<S> #runtime::OperationHandler<#input_ty, #output_ty> for #registered_ident<S>
                 where
                     S: #binding_trait + ::core::marker::Send + ::core::marker::Sync + 'static,
                 {
                     async fn start(
                         &self,
-                        context: ::nexus_rpc::OperationStartContext,
+                        context: #runtime::OperationStartContext,
                         input: #input_ty,
                     ) -> ::core::result::Result<
-                        ::nexus_rpc::OperationStartResult<#output_ty>,
-                        ::nexus_rpc::BoxError,
+                        #runtime::OperationStartResult<#output_ty>,
+                        #runtime::BoxError,
                     > {
                         let handler = <S as #binding_trait>::#method_ident(self.service.as_ref());
                         handler.start(context, input).await
@@ -176,8 +172,8 @@ fn expand_nexus_service_inner(args: TokenStream, item: TokenStream) -> syn::Resu
 
                     async fn cancel(
                         &self,
-                        context: ::nexus_rpc::OperationCancelContext,
-                    ) -> ::core::result::Result<(), ::nexus_rpc::BoxError> {
+                        context: #runtime::OperationCancelContext,
+                    ) -> ::core::result::Result<(), #runtime::BoxError> {
                         let handler = <S as #binding_trait>::#method_ident(self.service.as_ref());
                         handler.cancel(context).await
                     }
@@ -189,7 +185,7 @@ fn expand_nexus_service_inner(args: TokenStream, item: TokenStream) -> syn::Resu
                     registrar: &mut R,
                 ) where
                     S: #binding_trait + ::core::marker::Send + ::core::marker::Sync + 'static,
-                    R: ::nexus_rpc::integration::OperationRegistrar,
+                    R: #runtime::integration::OperationRegistrar,
                     #input_ty: ::core::marker::Send + 'static,
                     #output_ty: ::core::marker::Send + 'static,
                 {
@@ -238,12 +234,12 @@ fn expand_nexus_service_inner(args: TokenStream, item: TokenStream) -> syn::Resu
             #( #operation_infos )*
 
             #[doc(hidden)]
-            pub static __NEXUS_OPERATION_INFOS: &[::nexus_rpc::integration::OperationDefinitionInfo] =
+            pub static __NEXUS_OPERATION_INFOS: &[#runtime::integration::OperationDefinitionInfo] =
                 &[ #( #info_names ),* ];
 
             #[doc(hidden)]
-            pub static __NEXUS_SERVICE_DEFINITION: ::nexus_rpc::ServiceDefinition =
-                ::nexus_rpc::ServiceDefinition::new(#service_name, __NEXUS_OPERATION_INFOS);
+            pub static __NEXUS_SERVICE_DEFINITION: #runtime::ServiceDefinition =
+                #runtime::ServiceDefinition::new(#service_name, __NEXUS_OPERATION_INFOS);
 
             #( #operation_type_aliases )*
             #( #operation_defs )*
@@ -255,7 +251,7 @@ fn expand_nexus_service_inner(args: TokenStream, item: TokenStream) -> syn::Resu
             pub fn register<S, R>(service: S, registrar: &mut R)
             where
                 S: __NexusAllBindings + ::core::marker::Send + ::core::marker::Sync + 'static,
-                R: ::nexus_rpc::integration::OperationRegistrar,
+                R: #runtime::integration::OperationRegistrar,
             {
                 let service = ::std::sync::Arc::new(service);
                 #( #registration_calls )*

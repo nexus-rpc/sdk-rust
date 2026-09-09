@@ -1,4 +1,6 @@
+use proc_macro_crate::{FoundCrate, crate_name};
 use proc_macro2::TokenStream;
+use syn::ext::IdentExt;
 use syn::parse::{Parse, ParseStream};
 use syn::{
     Attribute, Error, Expr, FnArg, Ident, ImplItemFn, ItemTrait, LitStr, MetaNameValue, Path,
@@ -67,9 +69,28 @@ pub(crate) fn parse_service_handler_args(tokens: TokenStream) -> Result<ServiceH
 pub(crate) fn strip_attr(attrs: &[Attribute], attr_name: &str) -> Vec<Attribute> {
     attrs
         .iter()
-        .filter(|attr| !attr.path().is_ident(attr_name))
+        .filter(|attr| !path_ends_with_ident(attr.path(), attr_name))
         .cloned()
         .collect()
+}
+
+pub(crate) fn path_ends_with_ident(path: &Path, ident: &str) -> bool {
+    path.segments
+        .last()
+        .is_some_and(|segment| segment.ident == ident)
+}
+
+pub(crate) fn runtime_crate_path() -> Path {
+    match crate_name("nexus-rpc") {
+        Ok(FoundCrate::Itself) => syn::parse_quote!(::nexus_rpc),
+        Ok(FoundCrate::Name(name)) => {
+            let ident = Ident::new(&name, proc_macro2::Span::call_site());
+            syn::parse_quote!(::#ident)
+        }
+        // This permits macro-only tests and custom runtime shims which expose the
+        // conventional crate name without declaring a Cargo dependency.
+        Err(_) => syn::parse_quote!(::nexus_rpc),
+    }
 }
 
 pub(crate) fn is_temporal_operation_attr(attr: &Attribute) -> bool {
@@ -256,7 +277,7 @@ pub(crate) fn expect_no_args(tokens: TokenStream, label: &str) -> Result<()> {
 pub(crate) fn parse_name_list(attrs: &[Attribute], attr_name: &str) -> Result<Option<LitStr>> {
     let nexus_attrs: Vec<&Attribute> = attrs
         .iter()
-        .filter(|attr| attr.path().is_ident(attr_name))
+        .filter(|attr| path_ends_with_ident(attr.path(), attr_name))
         .collect();
     if nexus_attrs.len() > 1 {
         return Err(Error::new_spanned(
@@ -293,7 +314,7 @@ pub(crate) fn trait_path_to_helper_module(service: &Path) -> Result<Path> {
         ));
     }
     let helper_ident = Ident::new(
-        &format!("__nexus_service_metadata_for_{}", last.ident),
+        &format!("__nexus_service_metadata_for_{}", last.ident.unraw()),
         last.ident.span(),
     );
     last.ident = helper_ident;
