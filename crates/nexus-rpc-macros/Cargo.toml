@@ -9,7 +9,7 @@ description = "Procedural macros for the minimal Nexus Rust SDK"
 repository = "https://github.com/nexus-rpc/sdk-rust"
 homepage = "https://github.com/nexus-rpc/sdk-rust"
 documentation = "https://docs.rs/nexus-rpc-macros"
-exclude = ["tests/fixtures/**", "tests/ui/pass/temporal_extension.rs"]
+exclude = ["tests/fixtures/**"]
 
 [lib]
 proc-macro = true
@@ -23,7 +23,6 @@ syn = { version = "2", features = ["full", "extra-traits"] }
 [dev-dependencies]
 futures = "0.3"
 trybuild = "1"
-temporal-extension = { path = "tests/fixtures/temporal-extension" }
 
 [lints]
 workspace = true

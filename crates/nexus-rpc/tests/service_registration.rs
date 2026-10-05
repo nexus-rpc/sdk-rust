@@ -9,19 +9,25 @@ use std::{
 };
 
 use nexus_rpc::{
-    BoxError, OperationCancelContext, OperationDefinition, OperationHandler, OperationStartContext,
-    OperationStartResult, OperationToken, ServiceDefinition, ServiceHandler,
-    integration::{OperationDefinitionInfo, OperationRegistrar},
+    BoxError, NexusInput, NexusOutput, OperationCancelContext, OperationDefinition,
+    OperationHandler, OperationStartContext, OperationStartResult, OperationToken,
+    ServiceDefinition, ServiceHandler,
+    integration::{
+        OperationDefinitionInfo, OperationHandlerVisitor, OperationHandlerVisitorFor,
+        ServiceHandlerVisitor,
+    },
 };
 
 static PING_INFO: OperationDefinitionInfo =
-    OperationDefinitionInfo::new("ping", "ping-wire", "u32", "u32");
+    nexus_rpc::__macro_support::operation_definition_info("ping", "ping-wire", "u32", "u32");
 static EMPTY_INFO: OperationDefinitionInfo =
-    OperationDefinitionInfo::new("empty", "empty", "()", "()");
-static PING_DEFINITION: OperationDefinition<u32, u32> = OperationDefinition::new(&PING_INFO);
-static EMPTY_DEFINITION: OperationDefinition<(), ()> = OperationDefinition::new(&EMPTY_INFO);
+    nexus_rpc::__macro_support::operation_definition_info("empty", "empty", "()", "()");
+static PING_DEFINITION: OperationDefinition<u32, u32> =
+    nexus_rpc::__macro_support::operation_definition(&PING_INFO);
+static EMPTY_DEFINITION: OperationDefinition<(), ()> =
+    nexus_rpc::__macro_support::operation_definition(&EMPTY_INFO);
 static SERVICE_DEFINITION: ServiceDefinition =
-    ServiceDefinition::new("test-service", &[PING_INFO, EMPTY_INFO]);
+    nexus_rpc::__macro_support::service_definition("test-service", &[PING_INFO, EMPTY_INFO]);
 
 fn block_on<F>(future: F) -> F::Output
 where
@@ -144,20 +150,21 @@ impl ServiceHandler for TestService {
     fn definition() -> &'static ServiceDefinition {
         &SERVICE_DEFINITION
     }
+}
 
-    fn register<R>(self, registrar: &mut R)
-    where
-        Self: Sized,
-        R: OperationRegistrar,
-    {
+impl<V> ServiceHandlerVisitor<V> for TestService
+where
+    V: OperationHandlerVisitorFor<u32, u32> + OperationHandlerVisitorFor<(), ()>,
+{
+    fn visit_service_handler(self, visitor: &mut V) {
         let service = Arc::new(self);
-        registrar.register(
+        visitor.visit(
             &PING_DEFINITION,
             PingRegistration {
                 service: Arc::clone(&service),
             },
         );
-        registrar.register(&EMPTY_DEFINITION, EmptyRegistration { service });
+        visitor.visit(&EMPTY_DEFINITION, EmptyRegistration { service });
     }
 }
 
@@ -166,12 +173,12 @@ struct StoredOperation<I: 'static, O: 'static, H> {
     handler: H,
 }
 
-struct FakeRegistrar {
+struct FakeVisitor {
     wire_names: Vec<&'static str>,
     operations: Vec<Box<dyn Any + Send + Sync>>,
 }
 
-impl FakeRegistrar {
+impl FakeVisitor {
     fn new() -> Self {
         Self {
             wire_names: Vec::new(),
@@ -180,11 +187,15 @@ impl FakeRegistrar {
     }
 }
 
-impl OperationRegistrar for FakeRegistrar {
-    fn register<I, O, H>(&mut self, definition: &'static OperationDefinition<I, O>, handler: H)
+impl OperationHandlerVisitor for FakeVisitor {}
+
+impl<I, O> OperationHandlerVisitorFor<I, O> for FakeVisitor
+where
+    I: NexusInput,
+    O: NexusOutput,
+{
+    fn visit<H>(&mut self, definition: &'static OperationDefinition<I, O>, handler: H)
     where
-        I: Send + 'static,
-        O: Send + 'static,
         H: OperationHandler<I, O> + 'static,
     {
         self.wire_names.push(definition.info().wire_name());
@@ -208,35 +219,35 @@ fn service_definition_exposes_erased_metadata() {
 }
 
 #[test]
-fn registrar_receives_each_operation_once() {
+fn visitor_receives_each_operation_once() {
     let service = TestService {
         started: Arc::new(AtomicBool::new(false)),
         canceled: Arc::new(AtomicBool::new(false)),
     };
-    let mut registrar = FakeRegistrar::new();
+    let mut visitor = FakeVisitor::new();
 
-    service.register(&mut registrar);
+    service.visit_operations(&mut visitor);
 
-    assert_eq!(registrar.wire_names, vec!["ping-wire", "empty"]);
-    assert_eq!(registrar.operations.len(), 2);
+    assert_eq!(visitor.wire_names, vec!["ping-wire", "empty"]);
+    assert_eq!(visitor.operations.len(), 2);
 }
 
 #[test]
-fn registered_wrappers_remain_callable_after_service_is_moved() {
+fn visited_wrappers_remain_callable_after_service_is_moved() {
     let started = Arc::new(AtomicBool::new(false));
     let canceled = Arc::new(AtomicBool::new(false));
     let service = TestService {
         started: Arc::clone(&started),
         canceled: Arc::clone(&canceled),
     };
-    let mut registrar = FakeRegistrar::new();
+    let mut visitor = FakeVisitor::new();
 
-    service.register(&mut registrar);
+    service.visit_operations(&mut visitor);
 
-    let ping = registrar.operations[0]
+    let ping = visitor.operations[0]
         .downcast_ref::<StoredOperation<u32, u32, PingRegistration>>()
         .expect("missing ping registration");
-    let empty = registrar.operations[1]
+    let empty = visitor.operations[1]
         .downcast_ref::<StoredOperation<(), (), EmptyRegistration>>()
         .expect("missing empty registration");
 

@@ -43,25 +43,29 @@ impl GreetingServiceHandler {
 }
 
 #[derive(Default)]
-struct Registrar;
+struct Visitor;
 
-impl integration::OperationRegistrar for Registrar {
-    fn register<I, O, H>(&mut self, _definition: &'static OperationDefinition<I, O>, _handler: H)
+impl integration::OperationHandlerVisitor for Visitor {}
+
+impl<I, O> integration::OperationHandlerVisitorFor<I, O> for Visitor
+where
+    I: NexusInput,
+    O: NexusOutput,
+{
+    fn visit<H>(&mut self, _definition: &'static OperationDefinition<I, O>, _handler: H)
     where
-        I: Send + 'static,
-        O: Send + 'static,
         H: OperationHandler<I, O> + 'static,
     {
     }
 }
 
 fn main() {
-    let mut registrar = Registrar;
-    <GreetingServiceHandler as ServiceHandler>::register(
+    let mut visitor = Visitor;
+    <GreetingServiceHandler as ServiceHandler>::visit_operations(
         GreetingServiceHandler {
             greet: GreetingHandler,
         },
-        &mut registrar,
+        &mut visitor,
     );
     let definition = <GreetingServiceHandler as ServiceHandler>::definition();
     assert_eq!(definition.name, "GreetingService");

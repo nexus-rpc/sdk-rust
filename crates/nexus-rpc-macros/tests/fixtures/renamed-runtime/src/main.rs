@@ -1,5 +1,5 @@
 use nr::{
-    BoxError, OperationCancelContext, OperationHandler, OperationStartContext,
+    BoxError, NexusOperation, OperationCancelContext, OperationHandler, OperationStartContext,
     OperationStartResult, ServiceHandler,
 };
 
@@ -38,4 +38,5 @@ impl RenamedHandler {
 
 fn main() {
     let _ = <RenamedHandler as ServiceHandler>::definition();
+    assert_eq!(RenamedService::operation.name(), "renamed-operation");
 }

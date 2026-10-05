@@ -1,0 +1,8 @@
+error[E0599]: no function or associated item named `missing` found for struct `TestService` in the current scope
+ --> tests/ui/fail/missing_operation.rs:9:26
+  |
+3 | #[nexus_service]
+  | ---------------- function or associated item `missing` not found for this struct
+...
+9 |     let _ = TestService::missing;
+  |                          ^^^^^^^ function or associated item not found in `TestService`

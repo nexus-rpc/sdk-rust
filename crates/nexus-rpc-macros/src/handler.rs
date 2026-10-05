@@ -4,9 +4,8 @@ use syn::ext::IdentExt;
 use syn::{Error, ImplItem, ImplItemFn, ItemImpl};
 
 use crate::parse::{
-    combine_errors, error_tokens, expect_no_args, is_temporal_operation_attr,
-    parse_service_handler_args, path_ends_with_ident, runtime_crate_path, strip_attr,
-    trait_path_to_helper_module, validate_provider_method,
+    combine_errors, error_tokens, expect_no_args, parse_service_handler_args, path_ends_with_ident,
+    runtime_crate_path, service_path_to_helper_module, strip_attr, validate_provider_method,
 };
 
 pub(crate) fn expand_nexus_service_handler(args: TokenStream, item: TokenStream) -> TokenStream {
@@ -36,7 +35,7 @@ fn expand_nexus_service_handler_inner(
         ));
     }
 
-    let helper_module = trait_path_to_helper_module(&service_args.service)?;
+    let helper_module = service_path_to_helper_module(&service_args.service)?;
     let self_ty = (*impl_item.self_ty).clone();
     let runtime = runtime_crate_path();
 
@@ -53,14 +52,12 @@ fn expand_nexus_service_handler_inner(
             .attrs
             .iter()
             .any(|attr| path_ends_with_ident(attr.path(), "nexus_operation_handler"));
-        let is_extension_candidate =
-            !has_marker && method.attrs.iter().any(is_temporal_operation_attr);
 
-        if !has_marker && !is_extension_candidate {
+        if !has_marker {
             continue;
         }
 
-        if has_marker && let Err(error) = validate_provider_method(method) {
+        if let Err(error) = validate_provider_method(method) {
             errors.push(error);
             continue;
         }
@@ -112,13 +109,15 @@ fn expand_nexus_service_handler_inner(
             fn definition() -> &'static #runtime::ServiceDefinition {
                 &#helper_module::__NEXUS_SERVICE_DEFINITION
             }
+        }
 
-            fn register<R>(self, registrar: &mut R)
-            where
-                Self: Sized,
-                R: #runtime::integration::OperationRegistrar,
-            {
-                #helper_module::register(self, registrar);
+        impl<V> #runtime::integration::ServiceHandlerVisitor<V> for #self_ty
+        where
+            #self_ty: #helper_module::__NexusAllBindings,
+            V: #helper_module::__NexusOperationVisitor,
+        {
+            fn visit_service_handler(self, visitor: &mut V) {
+                #helper_module::visit_operations(self, visitor);
             }
         }
 

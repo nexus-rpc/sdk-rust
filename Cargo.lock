@@ -135,6 +135,7 @@ name = "nexus-rpc"
 version = "0.1.0"
 dependencies = [
  "nexus-rpc-macros",
+ "trybuild",
 ]
 
 [[package]]
@@ -146,7 +147,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
- "temporal-extension",
  "trybuild",
 ]
 
@@ -267,15 +267,6 @@ name = "target-triple"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3a6bfce3d99adfa72d24750a61f782f3036a81e7f86d8841ee1326deaebd171"
-
-[[package]]
-name = "temporal-extension"
-version = "0.0.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
-]
 
 [[package]]
 name = "termcolor"

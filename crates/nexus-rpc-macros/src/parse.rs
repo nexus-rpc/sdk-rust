@@ -40,11 +40,14 @@ impl Parse for ServiceHandlerArgs {
         if meta.path != syn::parse_quote!(service) {
             return Err(Error::new_spanned(
                 meta.path,
-                "expected `service = ServiceTrait`",
+                "expected `service = Service`",
             ));
         }
         let Expr::Path(expr_path) = meta.value else {
-            return Err(Error::new_spanned(meta.value, "expected a trait path"));
+            return Err(Error::new_spanned(
+                meta.value,
+                "expected a service definition path",
+            ));
         };
         if !input.is_empty() {
             return Err(input.error("unexpected extra attribute arguments"));
@@ -91,13 +94,6 @@ pub(crate) fn runtime_crate_path() -> Path {
         // conventional crate name without declaring a Cargo dependency.
         Err(_) => syn::parse_quote!(::nexus_rpc),
     }
-}
-
-pub(crate) fn is_temporal_operation_attr(attr: &Attribute) -> bool {
-    attr.path()
-        .segments
-        .last()
-        .is_some_and(|segment| segment.ident == "temporal_operation")
 }
 
 pub(crate) fn validate_trait(item: &ItemTrait) -> Result<()> {
@@ -274,39 +270,12 @@ pub(crate) fn expect_no_args(tokens: TokenStream, label: &str) -> Result<()> {
     }
 }
 
-pub(crate) fn parse_name_list(attrs: &[Attribute], attr_name: &str) -> Result<Option<LitStr>> {
-    let nexus_attrs: Vec<&Attribute> = attrs
-        .iter()
-        .filter(|attr| path_ends_with_ident(attr.path(), attr_name))
-        .collect();
-    if nexus_attrs.len() > 1 {
-        return Err(Error::new_spanned(
-            nexus_attrs[1],
-            format!("duplicate `#[{attr_name}]` attribute"),
-        ));
-    }
-    match nexus_attrs.first() {
-        Some(attr) => {
-            if attr.meta.require_list().is_err() && !matches!(attr.meta, syn::Meta::Path(_)) {
-                return Err(Error::new_spanned(attr, "malformed attribute"));
-            }
-            parse_name_override(
-                attr.meta
-                    .require_list()
-                    .map(|list| list.tokens.clone())
-                    .unwrap_or_default(),
-            )
-        }
-        None => Ok(None),
-    }
-}
-
-pub(crate) fn trait_path_to_helper_module(service: &Path) -> Result<Path> {
+pub(crate) fn service_path_to_helper_module(service: &Path) -> Result<Path> {
     let mut helper = service.clone();
     let last = helper
         .segments
         .last_mut()
-        .ok_or_else(|| Error::new_spanned(service, "expected a service trait path"))?;
+        .ok_or_else(|| Error::new_spanned(service, "expected a service definition path"))?;
     if !matches!(last.arguments, syn::PathArguments::None) {
         return Err(Error::new_spanned(
             &last.arguments,

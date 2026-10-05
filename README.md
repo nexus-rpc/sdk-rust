@@ -7,6 +7,7 @@ Minimal generic authoring primitives for Nexus services in Rust.
 The snippet below shows the generic authoring model implemented by this workspace.
 
 ```rust
+# mod example {
 use nexus_rpc::{
     BoxError, OperationCancelContext, OperationHandler, OperationStartContext,
     OperationStartResult, nexus_service, nexus_service_handler,
@@ -45,6 +46,7 @@ impl PaymentServiceHandler {
         &self.charge
     }
 }
+# }
 ```
 
 Async completion uses the same model: return `OperationStartResult::Async(OperationToken::new(...))` from `start`, and receive that token again in `OperationCancelContext`.

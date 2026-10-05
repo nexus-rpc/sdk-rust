@@ -1,13 +1,13 @@
 use nexus_rpc::{
-    BoxError, OperationCancelContext, OperationDefinition, OperationHandler, OperationStartContext,
-    OperationStartResult, ServiceHandler, integration::OperationRegistrar, nexus_service,
-    nexus_service_handler,
+    BoxError, NexusInput, NexusOutput, OperationCancelContext, OperationDefinition,
+    OperationHandler, OperationStartContext, OperationStartResult, ServiceHandler,
+    integration::{OperationHandlerVisitor, OperationHandlerVisitorFor},
+    nexus_service_handler, service,
 };
 
-#[nexus_service(name = "echo-service")]
-#[allow(dead_code)]
+#[service(name = "echo-service")]
 trait EchoService {
-    #[nexus_rpc::nexus_operation(name = "echo-message")]
+    #[nexus_rpc::operation(name = "echo-message")]
     fn echo(input: String) -> String;
 }
 
@@ -40,15 +40,19 @@ impl EchoServiceHandler {
 }
 
 #[derive(Default)]
-struct RecordingRegistrar {
+struct RecordingVisitor {
     operations: Vec<(&'static str, &'static str)>,
 }
 
-impl OperationRegistrar for RecordingRegistrar {
-    fn register<I, O, H>(&mut self, definition: &'static OperationDefinition<I, O>, _handler: H)
+impl OperationHandlerVisitor for RecordingVisitor {}
+
+impl<I, O> OperationHandlerVisitorFor<I, O> for RecordingVisitor
+where
+    I: NexusInput,
+    O: NexusOutput,
+{
+    fn visit<H>(&mut self, definition: &'static OperationDefinition<I, O>, _handler: H)
     where
-        I: Send + 'static,
-        O: Send + 'static,
         H: OperationHandler<I, O> + 'static,
     {
         let info = definition.info();
@@ -63,8 +67,8 @@ fn reexported_macros_generate_runtime_registration_contract() {
     assert_eq!(definition.operations().len(), 1);
     assert_eq!(definition.operations()[0].wire_name(), "echo-message");
 
-    let mut registrar = RecordingRegistrar::default();
-    EchoServiceHandler { echo: EchoHandler }.register(&mut registrar);
+    let mut visitor = RecordingVisitor::default();
+    EchoServiceHandler { echo: EchoHandler }.visit_operations(&mut visitor);
 
-    assert_eq!(registrar.operations, vec![("echo", "echo-message")]);
+    assert_eq!(visitor.operations, vec![("echo", "echo-message")]);
 }
