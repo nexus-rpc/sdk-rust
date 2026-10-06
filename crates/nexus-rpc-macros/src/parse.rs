@@ -131,6 +131,14 @@ pub(crate) fn validate_trait(item: &ItemTrait) -> Result<()> {
 }
 
 fn validate_service_method(method: &TraitItemFn, errors: &mut Vec<Error>) {
+    for attr in &method.attrs {
+        if attr.path().is_ident("cfg") || attr.path().is_ident("cfg_attr") {
+            errors.push(Error::new_spanned(
+                attr,
+                "conditional attributes on Nexus operations are not supported; apply them to the whole service instead",
+            ));
+        }
+    }
     if let Some(default) = &method.default {
         errors.push(Error::new_spanned(
             default,

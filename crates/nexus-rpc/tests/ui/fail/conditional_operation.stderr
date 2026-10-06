@@ -1,0 +1,11 @@
+error: conditional attributes on Nexus operations are not supported; apply them to the whole service instead
+ --> tests/ui/fail/conditional_operation.rs:3:5
+  |
+3 |     #[cfg(any())]
+  |     ^^^^^^^^^^^^^
+
+error: conditional attributes on Nexus operations are not supported; apply them to the whole service instead
+  --> tests/ui/fail/conditional_operation.rs:10:5
+   |
+10 |     #[cfg_attr(all(), cfg(any()))]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

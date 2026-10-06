@@ -38,8 +38,34 @@ fn expand_nexus_service_inner(args: TokenStream, item: TokenStream) -> syn::Resu
     check_duplicate_operation_names(&operations)?;
 
     let vis = trait_item.vis.clone();
+    // Markers live one module below the service. Preserve the visibility's
+    // original scope rather than interpreting relative paths in that module.
     let marker_vis: Visibility = match &vis {
         Visibility::Inherited => syn::parse_quote!(pub(super)),
+        Visibility::Restricted(restricted) if restricted.path.is_ident("self") => {
+            syn::parse_quote!(pub(super))
+        }
+        Visibility::Restricted(restricted)
+            if restricted
+                .path
+                .segments
+                .first()
+                .is_some_and(|segment| segment.ident == "super") =>
+        {
+            let path = &restricted.path;
+            syn::parse_quote!(pub(in super::#path))
+        }
+        Visibility::Restricted(restricted)
+            if restricted
+                .path
+                .segments
+                .first()
+                .is_some_and(|segment| segment.ident == "self") =>
+        {
+            let mut path = (*restricted.path).clone();
+            path.segments[0].ident = syn::Ident::new("super", path.segments[0].ident.span());
+            syn::parse_quote!(pub(in #path))
+        }
         other => other.clone(),
     };
     let trait_ident = trait_item.ident.clone();
