@@ -169,12 +169,6 @@ fn validate_service_method(method: &TraitItemFn, errors: &mut Vec<Error>) {
             ));
         }
     }
-    if matches!(method.sig.output, ReturnType::Default) {
-        errors.push(Error::new_spanned(
-            &method.sig.output,
-            "nexus operations must return exactly one output type",
-        ));
-    }
 }
 
 pub(crate) fn extract_operation_signature(method: &TraitItemFn) -> Result<(Type, Type)> {
@@ -190,13 +184,11 @@ pub(crate) fn extract_operation_signature(method: &TraitItemFn) -> Result<(Type,
             "nexus operations cannot take a receiver",
         ));
     };
-    let ReturnType::Type(_, output) = &method.sig.output else {
-        return Err(Error::new_spanned(
-            &method.sig.output,
-            "nexus operations must return exactly one output type",
-        ));
+    let output = match &method.sig.output {
+        ReturnType::Default => syn::parse_quote!(()),
+        ReturnType::Type(_, output) => (*output).as_ref().clone(),
     };
-    Ok(((*input.ty).clone(), (*output).as_ref().clone()))
+    Ok(((*input.ty).clone(), output))
 }
 
 pub(crate) fn validate_provider_method(method: &ImplItemFn) -> Result<()> {

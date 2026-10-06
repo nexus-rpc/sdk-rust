@@ -1,7 +1,0 @@
-error: nexus operations must return exactly one output type
- --> tests/ui/fail/missing-return.rs:9:1
-  |
-9 | #[nexus_service]
-  | ^^^^^^^^^^^^^^^^
-  |
-  = note: this error originates in the attribute macro `nexus_service` (in Nightly builds, run with -Z macro-backtrace for more info)

@@ -1,4 +1,4 @@
-error[E0277]: the trait bound `ExampleHandlers: __NexusBind_ping` is not satisfied
+error[E0277]: missing provider for Nexus operation `ping` on service `ExampleService`
   --> tests/ui/fail/missing-provider.rs:17:1
    |
 17 | #[nexus_service_handler(service = ExampleService)]
@@ -9,6 +9,7 @@ help: the trait `__NexusBind_ping` is not implemented for `ExampleHandlers`
    |
 15 | struct ExampleHandlers;
    | ^^^^^^^^^^^^^^^^^^^^^^
+   = note: add `#[nexus_operation_handler] fn ping(&self) -> impl OperationHandler<(), ()>` to the service handler impl
 help: this trait has no implementations, consider adding one
   --> tests/ui/fail/missing-provider.rs:9:1
    |

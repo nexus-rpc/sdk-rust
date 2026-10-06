@@ -1,0 +1,11 @@
+error: unexpected extra attribute arguments
+ --> tests/ui/fail/extra-service-args.rs:9:33
+  |
+9 | #[nexus_service(name = "Example", extra = "bad")]
+  |                                 ^
+
+error: unexpected extra attribute arguments
+  --> tests/ui/fail/extra-service-args.rs:12:27
+   |
+12 | #[service(name = "Example", extra = "bad")]
+   |                           ^

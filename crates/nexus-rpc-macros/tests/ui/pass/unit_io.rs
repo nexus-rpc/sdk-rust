@@ -11,7 +11,7 @@ use nexus_rpc_macros::{
 #[nexus_service]
 trait UnitService {
     #[nexus_operation]
-    fn nop(input: ()) -> ();
+    fn nop(input: ());
 }
 
 struct NopHandler;

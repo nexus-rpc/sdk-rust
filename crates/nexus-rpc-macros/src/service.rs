@@ -136,8 +136,23 @@ fn expand_nexus_service_inner(args: TokenStream, item: TokenStream) -> syn::Resu
         )
         .map(|(op, (binding_trait, (input_ident, output_ident)))| {
             let method_ident = &op.method.sig.ident;
+            let message = LitStr::new(
+                &format!(
+                    "missing provider for Nexus operation `{method_ident}` on service `{trait_ident}`"
+                ),
+                method_ident.span(),
+            );
+            let (input_ty, output_ty) = extract_operation_signature(&op.method)?;
+            let note = LitStr::new(
+                &format!(
+                    "add `#[nexus_operation_handler] fn {method_ident}(&self) -> impl OperationHandler<{}, {}>` to the service handler impl",
+                    quote!(#input_ty), quote!(#output_ty),
+                ),
+                method_ident.span(),
+            );
             Ok(quote! {
                 #[doc(hidden)]
+                #[diagnostic::on_unimplemented(message = #message, note = #note)]
                 pub trait #binding_trait {
                     fn #method_ident(
                         &self,

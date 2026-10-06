@@ -86,7 +86,7 @@ impl ServiceDefinition {
 
 pub struct OperationDefinition<I, O> {
     pub info: &'static integration::OperationDefinitionInfo,
-    pub _marker: std::marker::PhantomData<fn(I) -> O>,
+    _marker: std::marker::PhantomData<fn(I) -> O>,
 }
 
 pub trait NexusInput: Send + 'static {}
