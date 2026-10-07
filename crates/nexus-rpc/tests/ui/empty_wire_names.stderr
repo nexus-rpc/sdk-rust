@@ -1,0 +1,11 @@
+error: service wire name cannot be empty
+ --> tests/ui/empty_wire_names.rs:3:18
+  |
+3 | #[service(name = "")]
+  |                  ^^
+
+error: operation wire name cannot be empty
+  --> tests/ui/empty_wire_names.rs:10:35
+   |
+10 |     #[nexus_rpc::operation(name = "")]
+   |                                   ^^

@@ -1,5 +1,0 @@
-error: service wire name cannot be empty
- --> tests/ui/fail/empty-service-name.rs:9:24
-  |
-9 | #[nexus_service(name = "")]
-  |                        ^^

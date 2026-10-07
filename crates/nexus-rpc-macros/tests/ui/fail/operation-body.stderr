@@ -1,5 +1,0 @@
-error: nexus operations cannot have method bodies
-  --> tests/ui/fail/operation-body.rs:12:30
-   |
-12 |     fn ping(input: ()) -> () {}
-   |                              ^^

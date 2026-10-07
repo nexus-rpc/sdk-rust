@@ -1,0 +1,11 @@
+error: duplicate operation wire name `lookup`
+ --> tests/ui/duplicate_wire_names.rs:6:35
+  |
+6 |     #[nexus_rpc::operation(name = "lookup")]
+  |                                   ^^^^^^^^
+
+error: previous operation with the same wire name
+ --> tests/ui/duplicate_wire_names.rs:5:8
+  |
+5 |     fn lookup(input: ()) -> ();
+  |        ^^^^^^

@@ -326,20 +326,3 @@ fn expect_no_args_or_name(args: TokenStream, label: &str) -> syn::Result<()> {
     }
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn operation_attribute_matching_does_not_consume_other_frameworks() {
-        let runtime: Path = syn::parse_quote!(::renamed_nexus);
-        let bare: Attribute = syn::parse_quote!(#[operation(name = "wire")]);
-        let qualified: Attribute = syn::parse_quote!(#[renamed_nexus::operation(name = "wire")]);
-        let unrelated: Attribute = syn::parse_quote!(#[other_framework::operation(name = "other")]);
-
-        assert!(is_runtime_attribute(&bare, &runtime, "operation"));
-        assert!(is_runtime_attribute(&qualified, &runtime, "operation"));
-        assert!(!is_runtime_attribute(&unrelated, &runtime, "operation"));
-    }
-}

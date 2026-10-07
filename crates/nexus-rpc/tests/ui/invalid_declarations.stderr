@@ -1,0 +1,23 @@
+error: nexus operations cannot be async
+ --> tests/ui/invalid_declarations.rs:5:5
+  |
+5 |     async fn asynchronous(input: ()) -> ();
+  |     ^^^^^
+
+error: nexus operations cannot have method bodies
+ --> tests/ui/invalid_declarations.rs:6:30
+  |
+6 |     fn body(input: ()) -> () {}
+  |                              ^^
+
+error: nexus operations cannot take a receiver
+ --> tests/ui/invalid_declarations.rs:7:17
+  |
+7 |     fn receiver(self) -> ();
+  |                 ^^^^
+
+error: nexus operations do not support generics or lifetimes
+ --> tests/ui/invalid_declarations.rs:8:15
+  |
+8 |     fn generic<T>(input: T) -> ();
+  |               ^^^

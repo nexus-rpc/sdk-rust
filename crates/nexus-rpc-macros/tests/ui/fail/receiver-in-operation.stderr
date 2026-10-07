@@ -1,5 +1,0 @@
-error: nexus operations cannot take a receiver
-  --> tests/ui/fail/receiver-in-operation.rs:12:13
-   |
-12 |     fn ping(&self) -> ();
-   |             ^^^^^

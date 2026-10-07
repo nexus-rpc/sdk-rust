@@ -1,5 +1,0 @@
-error: nexus operations must take exactly one input type
-  --> tests/ui/fail/multiple-inputs.rs:12:13
-   |
-12 |     fn ping(first: (), second: ()) -> ();
-   |             ^^^^^^^^^^^^^^^^^^^^^

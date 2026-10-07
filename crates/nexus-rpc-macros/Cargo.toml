@@ -9,7 +9,6 @@ description = "Procedural macros for Nexus service definitions and typed operati
 repository = "https://github.com/nexus-rpc/sdk-rust"
 homepage = "https://github.com/nexus-rpc/sdk-rust"
 documentation = "https://docs.rs/nexus-rpc-macros"
-exclude = ["tests/fixtures/**"]
 
 [lib]
 proc-macro = true
@@ -19,9 +18,6 @@ proc-macro-crate = "3"
 proc-macro2 = "1"
 quote = "1"
 syn = { version = "2", features = ["full", "extra-traits"] }
-
-[dev-dependencies]
-trybuild = "1"
 
 [lints]
 workspace = true

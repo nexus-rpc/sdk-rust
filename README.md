@@ -1,8 +1,6 @@
 # Nexus Rust SDK
 
 Service definitions and typed operation markers for Nexus clients and integrations.
-This crate defines the service contract only: it does not author or run operation
-handlers.
 
 ## Example
 
@@ -31,20 +29,16 @@ fn main() {
 The `service` macro replaces a declaration with a zero-sized service marker and
 associated operation markers such as `PaymentService::charge`. `NexusOperation`
 preserves the declaring service, input, and output types. Generated metadata
-describes wire names and declared Rust types without binding any handlers.
+describes wire names and declared Rust types.
 It is available through the optional `NexusServiceMetadata` trait; the service
 identity contract itself requires only `NexusService::name()`.
 `nexus_service` and `nexus_operation` remain aliases for the definition macros.
 
-## Handler ownership
-
-Temporal owns operation authoring, handler registration, start and cancel
-contexts, cancellation, operation completion, and handler errors. Use Temporal's
-SDK APIs for those capabilities; Nexus has no handler or context authoring API.
-The dependency is one-way: Temporal consumes Nexus service definitions and typed
-operation markers. Nexus does not depend on Temporal.
-
 ## Verification Commands
+
+Tests exercise typed markers, wire names, and matching metadata through the
+public API. Compile-fail fixtures check type safety and invalid operation
+declarations.
 
 Run the full validation suite from the repository root:
 

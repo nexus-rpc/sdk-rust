@@ -1,7 +1,0 @@
-error[E0432]: unresolved imports `nexus_rpc_macros::nexus_operation_handler`, `nexus_rpc_macros::nexus_service_handler`
- --> tests/ui/fail/handler_macros_removed.rs:1:24
-  |
-1 | use nexus_rpc_macros::{nexus_operation_handler, nexus_service_handler};
-  |                        ^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^ no `nexus_service_handler` in the root
-  |                        |
-  |                        no `nexus_operation_handler` in the root

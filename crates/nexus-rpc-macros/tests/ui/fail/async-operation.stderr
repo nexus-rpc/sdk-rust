@@ -1,5 +1,0 @@
-error: nexus operations cannot be async
-  --> tests/ui/fail/async-operation.rs:12:5
-   |
-12 |     async fn ping(input: ()) -> ();
-   |     ^^^^^
