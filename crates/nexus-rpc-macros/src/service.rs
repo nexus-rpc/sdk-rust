@@ -52,18 +52,6 @@ fn expand_nexus_service_inner(args: TokenStream, item: TokenStream) -> syn::Resu
         })
         .collect::<Vec<_>>();
     let helper_module = format_ident!("__nexus_service_metadata_for_{}", trait_ident.unraw());
-    let binding_trait_names: Vec<_> = operations
-        .iter()
-        .map(|op| format_ident!("__NexusBind_{}", op.method.sig.ident.unraw()))
-        .collect();
-    let input_type_names: Vec<_> = operations
-        .iter()
-        .map(|op| format_ident!("__NexusInput_{}", op.method.sig.ident.unraw()))
-        .collect();
-    let output_type_names: Vec<_> = operations
-        .iter()
-        .map(|op| format_ident!("__NexusOutput_{}", op.method.sig.ident.unraw()))
-        .collect();
 
     let info_names: Vec<_> = operations
         .iter()
@@ -88,28 +76,13 @@ fn expand_nexus_service_inner(args: TokenStream, item: TokenStream) -> syn::Resu
             let (input_ty, output_ty) = extract_operation_signature(&op.method)?;
             Ok(quote! {
                 #[doc(hidden)]
-                pub static #info_ident: #runtime::integration::OperationDefinitionInfo =
+                pub static #info_ident: #runtime::OperationDefinitionInfo =
                     #runtime::__macro_support::operation_definition_info(
                         #rust_name,
                         #wire_name,
                         ::core::stringify!(#input_ty),
                         ::core::stringify!(#output_ty),
                     );
-            })
-        })
-        .collect::<syn::Result<_>>()?;
-
-    let operation_type_aliases: Vec<_> = operations
-        .iter()
-        .zip(input_type_names.iter().zip(output_type_names.iter()))
-        .map(|(op, (input_ident, output_ident))| {
-            let (input_ty, output_ty) = extract_operation_signature(&op.method)?;
-            Ok(quote! {
-                #[doc(hidden)]
-                pub type #input_ident = #input_ty;
-
-                #[doc(hidden)]
-                pub type #output_ident = #output_ty;
             })
         })
         .collect::<syn::Result<_>>()?;
@@ -126,117 +99,6 @@ fn expand_nexus_service_inner(args: TokenStream, item: TokenStream) -> syn::Resu
             })
         })
         .collect::<syn::Result<_>>()?;
-
-    let binding_traits: Vec<_> = operations
-        .iter()
-        .zip(
-            binding_trait_names
-                .iter()
-                .zip(input_type_names.iter().zip(output_type_names.iter())),
-        )
-        .map(|(op, (binding_trait, (input_ident, output_ident)))| {
-            let method_ident = &op.method.sig.ident;
-            Ok(quote! {
-                #[doc(hidden)]
-                pub trait #binding_trait {
-                    fn #method_ident(
-                        &self,
-                    ) -> impl #runtime::OperationHandler<#input_ident, #output_ident> + '_;
-                }
-            })
-        })
-        .collect::<syn::Result<_>>()?;
-
-    let registered_wrappers: Vec<_> = operations
-        .iter()
-        .zip(binding_trait_names.iter().zip(def_names.iter()))
-        .map(|(op, (binding_trait, def_ident))| {
-            let method_ident = &op.method.sig.ident;
-            let registered_ident = format_ident!("__NexusRegistered_{}", method_ident.unraw());
-            let (input_ty, output_ty) = extract_operation_signature(&op.method)?;
-            Ok(quote! {
-                #[doc(hidden)]
-                pub struct #registered_ident<S> {
-                    service: ::std::sync::Arc<S>,
-                }
-
-                impl<S> #runtime::OperationHandler<#input_ty, #output_ty> for #registered_ident<S>
-                where
-                    S: #binding_trait + ::core::marker::Send + ::core::marker::Sync + 'static,
-                {
-                    async fn start(
-                        &self,
-                        context: #runtime::OperationStartContext,
-                        input: #input_ty,
-                    ) -> ::core::result::Result<
-                        #runtime::OperationStartResult<#output_ty>,
-                        #runtime::BoxError,
-                    > {
-                        let handler = <S as #binding_trait>::#method_ident(self.service.as_ref());
-                        handler.start(context, input).await
-                    }
-
-                    async fn cancel(
-                        &self,
-                        context: #runtime::OperationCancelContext,
-                    ) -> ::core::result::Result<(), #runtime::BoxError> {
-                        let handler = <S as #binding_trait>::#method_ident(self.service.as_ref());
-                        handler.cancel(context).await
-                    }
-                }
-
-                #[doc(hidden)]
-                pub fn #method_ident<S, R>(
-                    service: &::std::sync::Arc<S>,
-                    visitor: &mut R,
-                ) where
-                    S: #binding_trait + ::core::marker::Send + ::core::marker::Sync + 'static,
-                    R: #runtime::integration::OperationHandlerVisitorFor<#input_ty, #output_ty>,
-                    #input_ty: #runtime::NexusInput,
-                    #output_ty: #runtime::NexusOutput,
-                {
-                    visitor.visit(
-                        &#def_ident,
-                        #registered_ident {
-                            service: ::std::sync::Arc::clone(service),
-                        },
-                    );
-                }
-            })
-        })
-        .collect::<syn::Result<_>>()?;
-
-    let registration_calls: Vec<_> = operations
-        .iter()
-        .map(|op| {
-            let method_ident = &op.method.sig.ident;
-            quote!(#method_ident(&service, visitor);)
-        })
-        .collect();
-
-    let visitor_capabilities: Vec<_> = operations
-        .iter()
-        .map(|op| {
-            let (input_ty, output_ty) = extract_operation_signature(&op.method)?;
-            Ok(quote!(#runtime::integration::OperationHandlerVisitorFor<#input_ty, #output_ty>))
-        })
-        .collect::<syn::Result<_>>()?;
-
-    let operation_visitor = quote! {
-        #[doc(hidden)]
-        pub trait __NexusOperationVisitor:
-            #runtime::integration::OperationHandlerVisitor
-            #( + #visitor_capabilities )*
-        {
-        }
-
-        impl<T> __NexusOperationVisitor for T
-        where
-            T: #runtime::integration::OperationHandlerVisitor
-                #( + #visitor_capabilities )*,
-        {
-        }
-    };
 
     let operation_markers: Vec<_> = operations
         .iter()
@@ -279,21 +141,6 @@ fn expand_nexus_service_inner(args: TokenStream, item: TokenStream) -> syn::Resu
         })
         .collect();
 
-    let all_bindings = if binding_trait_names.is_empty() {
-        quote! {
-            #[doc(hidden)]
-            pub trait __NexusAllBindings {}
-            impl<T> __NexusAllBindings for T {}
-        }
-    } else {
-        quote! {
-            #[doc(hidden)]
-            pub trait __NexusAllBindings: #( #binding_trait_names + )* {}
-
-            impl<T> __NexusAllBindings for T where T: #( #binding_trait_names + )* {}
-        }
-    };
-
     let tokens = quote! {
         #( #service_attrs )*
         #[doc = concat!("Typed definition marker for the `", stringify!(#trait_ident), "` Nexus service.")]
@@ -304,6 +151,13 @@ fn expand_nexus_service_inner(args: TokenStream, item: TokenStream) -> syn::Resu
         impl #runtime::NexusService for #trait_ident {
             fn name() -> &'static str {
                 #service_name
+            }
+        }
+
+        #( #conditional_attrs )*
+        impl #runtime::NexusServiceMetadata for #trait_ident {
+            fn definition() -> &'static #runtime::ServiceDefinition {
+                &#helper_module::__NEXUS_SERVICE_DEFINITION
             }
         }
 
@@ -321,7 +175,7 @@ fn expand_nexus_service_inner(args: TokenStream, item: TokenStream) -> syn::Resu
             #( #operation_infos )*
 
             #[doc(hidden)]
-            pub static __NEXUS_OPERATION_INFOS: &[#runtime::integration::OperationDefinitionInfo] =
+            pub static __NEXUS_OPERATION_INFOS: &[#runtime::OperationDefinitionInfo] =
                 &[ #( #info_names ),* ];
 
             #[doc(hidden)]
@@ -331,23 +185,8 @@ fn expand_nexus_service_inner(args: TokenStream, item: TokenStream) -> syn::Resu
                     __NEXUS_OPERATION_INFOS,
                 );
 
-            #( #operation_type_aliases )*
             #( #operation_defs )*
             #( #operation_markers )*
-            #( #binding_traits )*
-            #all_bindings
-            #operation_visitor
-            #( #registered_wrappers )*
-
-            #[doc(hidden)]
-            pub fn visit_operations<S, V>(service: S, visitor: &mut V)
-            where
-                S: __NexusAllBindings + ::core::marker::Send + ::core::marker::Sync + 'static,
-                V: __NexusOperationVisitor,
-            {
-                let service = ::std::sync::Arc::new(service);
-                #( #registration_calls )*
-            }
         }
     };
 

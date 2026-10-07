@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 readme.workspace = true
-description = "Procedural macros for the minimal Nexus Rust SDK"
+description = "Procedural macros for Nexus service definitions and typed operation markers"
 repository = "https://github.com/nexus-rpc/sdk-rust"
 homepage = "https://github.com/nexus-rpc/sdk-rust"
 documentation = "https://docs.rs/nexus-rpc-macros"
@@ -21,7 +21,6 @@ quote = "1"
 syn = { version = "2", features = ["full", "extra-traits"] }
 
 [dev-dependencies]
-futures = "0.3"
 trybuild = "1"
 
 [lints]

@@ -1,42 +1,18 @@
-use nr::{
-    BoxError, NexusOperation, OperationCancelContext, OperationHandler, OperationStartContext,
-    OperationStartResult, ServiceHandler,
-};
+use nr::{NexusOperation, NexusService};
 
-#[allow(dead_code)]
-#[nr::nexus_service]
+#[nr::nexus_service(name = "renamed-service")]
 trait RenamedService {
     #[nr::nexus_operation(name = "renamed-operation")]
     fn operation(input: ()) -> ();
 }
 
-struct Handler;
-
-impl OperationHandler<(), ()> for Handler {
-    async fn start(
-        &self,
-        _context: OperationStartContext,
-        _input: (),
-    ) -> Result<OperationStartResult<()>, BoxError> {
-        Ok(OperationStartResult::Sync(()))
-    }
-
-    async fn cancel(&self, _context: OperationCancelContext) -> Result<(), BoxError> {
-        Ok(())
-    }
-}
-
-struct RenamedHandler;
-
-#[nr::nexus_service_handler(service = RenamedService)]
-impl RenamedHandler {
-    #[nr::nexus_operation_handler]
-    fn operation(&self) -> Handler {
-        Handler
-    }
+fn assert_operation<Op: NexusOperation<Service = RenamedService, Input = (), Output = ()>>(
+    _operation: Op,
+) {
 }
 
 fn main() {
-    let _ = <RenamedHandler as ServiceHandler>::definition();
+    assert_operation(RenamedService::operation);
+    assert_eq!(RenamedService::name(), "renamed-service");
     assert_eq!(RenamedService::operation.name(), "renamed-operation");
 }

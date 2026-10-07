@@ -1,0 +1,19 @@
+error[E0271]: type mismatch resolving `<__NexusOperation_echo as NexusOperation>::Service == First`
+  --> tests/ui/fail/wrong_operation_service.rs:16:19
+   |
+16 |     expects_first(Second::echo);
+   |     ------------- ^^^^^^^^^^^^ type mismatch resolving `<__NexusOperation_echo as NexusOperation>::Service == First`
+   |     |
+   |     required by a bound introduced by this call
+   |
+note: expected this to be `First`
+  --> tests/ui/fail/wrong_operation_service.rs:8:1
+   |
+ 8 | #[service]
+   | ^^^^^^^^^^
+note: required by a bound in `expects_first`
+  --> tests/ui/fail/wrong_operation_service.rs:13:37
+   |
+13 | fn expects_first<Op: NexusOperation<Service = First>>(_operation: Op) {}
+   |                                     ^^^^^^^^^^^^^^^ required by this bound in `expects_first`
+   = note: this error originates in the attribute macro `service` (in Nightly builds, run with -Z macro-backtrace for more info)

@@ -1,55 +1,48 @@
 # Nexus Rust SDK
 
-Minimal generic authoring primitives for Nexus services in Rust.
+Service definitions and typed operation markers for Nexus clients and integrations.
+This crate defines the service contract only: it does not author or run operation
+handlers.
 
 ## Example
 
-The snippet below shows the generic authoring model implemented by this workspace.
-
 ```rust
-# mod example {
-use nexus_rpc::{
-    BoxError, OperationCancelContext, OperationHandler, OperationStartContext,
-    OperationStartResult, nexus_service, nexus_service_handler,
-};
+use nexus_rpc::{NexusOperation, NexusService, service};
 
-#[nexus_service(name = "payments")]
+#[service(name = "payments")]
 pub trait PaymentService {
-    #[nexus_operation(name = "charge-card")]
+    #[nexus_rpc::operation(name = "charge-card")]
     fn charge(input: String) -> String;
 }
 
-struct ChargeHandler;
-
-impl OperationHandler<String, String> for ChargeHandler {
-    async fn start(
-        &self,
-        _context: OperationStartContext,
-        input: String,
-    ) -> Result<OperationStartResult<String>, BoxError> {
-        Ok(OperationStartResult::Sync(input))
-    }
-
-    async fn cancel(&self, _context: OperationCancelContext) -> Result<(), BoxError> {
-        Ok(())
-    }
+fn accepts_charge<Op>(operation: Op)
+where
+    Op: NexusOperation<Service = PaymentService, Input = String, Output = String>,
+{
+    assert_eq!(operation.name(), "charge-card");
 }
 
-struct PaymentServiceHandler {
-    charge: ChargeHandler,
+fn main() {
+    accepts_charge(PaymentService::charge);
+    assert_eq!(PaymentService::name(), "payments");
 }
-
-#[nexus_service_handler(service = PaymentService)]
-impl PaymentServiceHandler {
-    #[nexus_operation_handler]
-    fn charge(&self) -> impl OperationHandler<String, String> + '_ {
-        &self.charge
-    }
-}
-# }
 ```
 
-Async completion uses the same model: return `OperationStartResult::Async(OperationToken::new(...))` from `start`, and receive that token again in `OperationCancelContext`.
+The `service` macro replaces a declaration with a zero-sized service marker and
+associated operation markers such as `PaymentService::charge`. `NexusOperation`
+preserves the declaring service, input, and output types. Generated metadata
+describes wire names and declared Rust types without binding any handlers.
+It is available through the optional `NexusServiceMetadata` trait; the service
+identity contract itself requires only `NexusService::name()`.
+`nexus_service` and `nexus_operation` remain aliases for the definition macros.
+
+## Handler ownership
+
+Temporal owns operation authoring, handler registration, start and cancel
+contexts, cancellation, operation completion, and handler errors. Use Temporal's
+SDK APIs for those capabilities; Nexus has no handler or context authoring API.
+The dependency is one-way: Temporal consumes Nexus service definitions and typed
+operation markers. Nexus does not depend on Temporal.
 
 ## Verification Commands
 

@@ -16,6 +16,12 @@ pub trait NexusService: 'static {
     fn name() -> &'static str;
 }
 
+/// Immutable metadata supplied by generated Nexus service definitions.
+pub trait NexusServiceMetadata: NexusService {
+    /// Returns immutable metadata for the declared operations.
+    fn definition() -> &'static ServiceDefinition;
+}
+
 /// A generated zero-sized type that identifies one operation on a Nexus service.
 pub trait NexusOperation: 'static {
     /// Service that declares this operation.
@@ -53,7 +59,7 @@ impl OperationDefinitionInfo {
         }
     }
 
-    /// Returns the Rust method name used for handler association.
+    /// Returns the Rust method name in the service declaration.
     pub const fn rust_name(&self) -> &'static str {
         self.rust_name
     }

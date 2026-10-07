@@ -1,72 +1,33 @@
-#![allow(dead_code, unused_imports)]
-
 extern crate self as nexus_rpc;
 
 include!("../support/runtime.rs");
 
-use nexus_rpc_macros::{
-    nexus_operation, nexus_operation_handler, nexus_service, nexus_service_handler,
-};
+use nexus_rpc_macros::service;
 
-#[nexus_service]
+#[service]
 trait UtilityService {
-    #[nexus_operation]
+    #[operation]
     fn ping(input: ()) -> ();
 
-    #[nexus_operation]
-    fn status(input: ()) -> ();
+    #[operation]
+    fn status(input: String) -> bool;
 }
 
-struct PingHandler;
-struct StatusHandler;
-
-impl OperationHandler<(), ()> for PingHandler {
-    async fn start(
-        &self,
-        _context: OperationStartContext,
-        _input: (),
-    ) -> Result<OperationStartResult<()>, BoxError> {
-        Ok(OperationStartResult::Sync(()))
-    }
-
-    async fn cancel(&self, _context: OperationCancelContext) -> Result<(), BoxError> {
-        Ok(())
-    }
+fn expects_ping<Op: NexusOperation<Service = UtilityService, Input = (), Output = ()>>(
+    _operation: Op,
+) {
 }
 
-impl OperationHandler<(), ()> for StatusHandler {
-    async fn start(
-        &self,
-        _context: OperationStartContext,
-        _input: (),
-    ) -> Result<OperationStartResult<()>, BoxError> {
-        Ok(OperationStartResult::Async(OperationToken::new("status")))
-    }
-
-    async fn cancel(&self, _context: OperationCancelContext) -> Result<(), BoxError> {
-        Ok(())
-    }
-}
-
-struct UtilityHandlers {
-    ping: PingHandler,
-    status: StatusHandler,
-}
-
-#[nexus_service_handler(service = UtilityService)]
-impl UtilityHandlers {
-    #[nexus_operation_handler]
-    fn ping(&self) -> &PingHandler {
-        &self.ping
-    }
-
-    #[nexus_operation_handler]
-    fn status(&self) -> &StatusHandler {
-        &self.status
-    }
+fn expects_status<Op: NexusOperation<Service = UtilityService, Input = String, Output = bool>>(
+    _operation: Op,
+) {
 }
 
 fn main() {
-    let definition = <UtilityHandlers as ServiceHandler>::definition();
-    assert_eq!(definition.operations.len(), 2);
+    expects_ping(UtilityService::ping);
+    expects_status(UtilityService::status);
+    let operations = UtilityService::definition().operations();
+    assert_eq!(operations.len(), 2);
+    assert_eq!(operations[0].wire_name(), UtilityService::ping.name());
+    assert_eq!(operations[1].wire_name(), UtilityService::status.name());
 }
