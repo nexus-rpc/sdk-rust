@@ -45,18 +45,18 @@ impl HandlerErrorType {
     /// Returns the canonical protocol wire name.
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::Unknown => "unknown",
-            Self::BadRequest => "bad_request",
-            Self::Unauthenticated => "unauthenticated",
-            Self::Unauthorized => "unauthorized",
-            Self::NotFound => "not_found",
-            Self::RequestTimeout => "request_timeout",
-            Self::Conflict => "conflict",
-            Self::ResourceExhausted => "resource_exhausted",
-            Self::Internal => "internal",
-            Self::NotImplemented => "not_implemented",
-            Self::Unavailable => "unavailable",
-            Self::UpstreamTimeout => "upstream_timeout",
+            Self::Unknown => "UNKNOWN",
+            Self::BadRequest => "BAD_REQUEST",
+            Self::Unauthenticated => "UNAUTHENTICATED",
+            Self::Unauthorized => "UNAUTHORIZED",
+            Self::NotFound => "NOT_FOUND",
+            Self::RequestTimeout => "REQUEST_TIMEOUT",
+            Self::Conflict => "CONFLICT",
+            Self::ResourceExhausted => "RESOURCE_EXHAUSTED",
+            Self::Internal => "INTERNAL",
+            Self::NotImplemented => "NOT_IMPLEMENTED",
+            Self::Unavailable => "UNAVAILABLE",
+            Self::UpstreamTimeout => "UPSTREAM_TIMEOUT",
         }
     }
 }

@@ -45,7 +45,7 @@ use nexus_rpc::{HandlerError, HandlerErrorRetryBehavior, HandlerErrorType, Opera
 let handler_error = HandlerError::new(HandlerErrorType::Unavailable, "storage unavailable")
     .with_retry_behavior(HandlerErrorRetryBehavior::Retryable)
     .with_source(std::io::Error::other("connection lost"));
-assert_eq!(handler_error.error_type().to_string(), "unavailable");
+assert_eq!(handler_error.error_type().to_string(), "UNAVAILABLE");
 
 let operation_error = OperationError::failed("payment declined");
 assert_eq!(operation_error.message(), "payment declined");
