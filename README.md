@@ -29,10 +29,9 @@ fn main() {
 The `service` macro replaces a declaration with a zero-sized service marker and
 associated operation markers such as `PaymentService::charge`. `NexusOperation`
 preserves the declaring service, input, and output types. Generated metadata
-describes wire names and declared Rust types.
+describes service and operation wire names.
 It is available through the optional `NexusServiceMetadata` trait; the service
 identity contract itself requires only `NexusService::name()`.
-`nexus_service` and `nexus_operation` remain aliases for the definition macros.
 
 ## Verification Commands
 

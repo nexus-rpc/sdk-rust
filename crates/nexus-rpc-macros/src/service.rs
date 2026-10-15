@@ -13,14 +13,14 @@ struct OperationSpec {
     wire_name: LitStr,
 }
 
-pub(crate) fn expand_nexus_service(args: TokenStream, item: TokenStream) -> TokenStream {
-    match expand_nexus_service_inner(args, item) {
+pub(crate) fn expand_service(args: TokenStream, item: TokenStream) -> TokenStream {
+    match expand_service_inner(args, item) {
         Ok(tokens) => tokens,
         Err(error) => error_tokens(error),
     }
 }
 
-fn expand_nexus_service_inner(args: TokenStream, item: TokenStream) -> syn::Result<TokenStream> {
+fn expand_service_inner(args: TokenStream, item: TokenStream) -> syn::Result<TokenStream> {
     let trait_item: ItemTrait = syn::parse2(item)?;
     validate_trait(&trait_item)?;
 
@@ -53,52 +53,15 @@ fn expand_nexus_service_inner(args: TokenStream, item: TokenStream) -> syn::Resu
         .collect::<Vec<_>>();
     let helper_module = format_ident!("__nexus_service_metadata_for_{}", trait_ident.unraw());
 
-    let info_names: Vec<_> = operations
-        .iter()
-        .enumerate()
-        .map(|(index, _)| format_ident!("__NEXUS_INFO_{index}"))
-        .collect();
-    let def_names: Vec<_> = operations
-        .iter()
-        .enumerate()
-        .map(|(index, _)| format_ident!("__NEXUS_DEF_{index}"))
-        .collect();
-
     let operation_infos: Vec<_> = operations
         .iter()
-        .zip(info_names.iter())
-        .map(|(op, info_ident)| {
-            let rust_name = LitStr::new(
-                &op.method.sig.ident.unraw().to_string(),
-                op.method.sig.ident.span(),
-            );
+        .map(|op| {
             let wire_name = &op.wire_name;
-            let (input_ty, output_ty) = extract_operation_signature(&op.method)?;
-            Ok(quote! {
-                #[doc(hidden)]
-                pub static #info_ident: #runtime::OperationDefinitionInfo =
-                    #runtime::__macro_support::operation_definition_info(
-                        #rust_name,
-                        #wire_name,
-                        ::core::stringify!(#input_ty),
-                        ::core::stringify!(#output_ty),
-                    );
-            })
+            quote! {
+                #runtime::__macro_support::operation_definition_info(#wire_name)
+            }
         })
-        .collect::<syn::Result<_>>()?;
-
-    let operation_defs: Vec<_> = operations
-        .iter()
-        .zip(info_names.iter().zip(def_names.iter()))
-        .map(|(op, (info_ident, def_ident))| {
-            let (input_ty, output_ty) = extract_operation_signature(&op.method)?;
-            Ok(quote! {
-                #[doc(hidden)]
-                pub static #def_ident: #runtime::OperationDefinition<#input_ty, #output_ty> =
-                    #runtime::__macro_support::operation_definition(&#info_ident);
-            })
-        })
-        .collect::<syn::Result<_>>()?;
+        .collect();
 
     let operation_markers: Vec<_> = operations
         .iter()
@@ -172,11 +135,9 @@ fn expand_nexus_service_inner(args: TokenStream, item: TokenStream) -> syn::Resu
         #vis mod #helper_module {
             use super::*;
 
-            #( #operation_infos )*
-
             #[doc(hidden)]
             pub static __NEXUS_OPERATION_INFOS: &[#runtime::OperationDefinitionInfo] =
-                &[ #( #info_names ),* ];
+                &[ #( #operation_infos ),* ];
 
             #[doc(hidden)]
             pub static __NEXUS_SERVICE_DEFINITION: #runtime::ServiceDefinition =
@@ -185,7 +146,6 @@ fn expand_nexus_service_inner(args: TokenStream, item: TokenStream) -> syn::Resu
                     __NEXUS_OPERATION_INFOS,
                 );
 
-            #( #operation_defs )*
             #( #operation_markers )*
         }
     };
@@ -198,28 +158,10 @@ fn build_operations(item: &ItemTrait, runtime: &Path) -> syn::Result<Vec<Operati
     methods
         .into_iter()
         .map(|method| {
-            let has_operation = method
-                .attrs
-                .iter()
-                .any(|attribute| is_runtime_attribute(attribute, runtime, "operation"));
-            let has_legacy_operation = method
-                .attrs
-                .iter()
-                .any(|attribute| is_runtime_attribute(attribute, runtime, "nexus_operation"));
-            if has_operation && has_legacy_operation {
-                return Err(Error::new_spanned(
-                    &method.sig.ident,
-                    "a service method cannot use both `#[operation]` and `#[nexus_operation]`",
-                ));
-            }
-            let wire_name = if has_operation {
-                parse_runtime_name(&method.attrs, runtime, "operation")?
-            } else if has_legacy_operation {
-                parse_runtime_name(&method.attrs, runtime, "nexus_operation")?
-            } else {
-                None
-            }
-            .unwrap_or_else(|| LitStr::new(&method.sig.ident.to_string(), method.sig.ident.span()));
+            let wire_name = parse_runtime_name(&method.attrs, runtime, "operation")?
+                .unwrap_or_else(|| {
+                    LitStr::new(&method.sig.ident.to_string(), method.sig.ident.span())
+                });
             if wire_name.value().is_empty() {
                 return Err(Error::new_spanned(
                     wire_name,
