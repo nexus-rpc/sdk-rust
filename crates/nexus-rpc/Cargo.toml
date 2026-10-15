@@ -12,6 +12,7 @@ documentation = "https://docs.rs/nexus-rpc"
 
 [dependencies]
 nexus-rpc-macros = { path = "../nexus-rpc-macros", version = "0.1.0" }
+thiserror = "2"
 
 [dev-dependencies]
 trybuild = "1"

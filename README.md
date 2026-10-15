@@ -33,6 +33,24 @@ describes service and operation wire names.
 It is available through the optional `NexusServiceMetadata` trait; the service
 identity contract itself requires only `NexusService::name()`.
 
+## Errors
+
+`HandlerError` describes a handler-level protocol failure and its retry policy.
+`OperationError` describes a terminal failed or canceled operation instead.
+Both retain application causes through `std::error::Error::source` without flattening them.
+
+```rust
+use nexus_rpc::{HandlerError, HandlerErrorRetryBehavior, HandlerErrorType, OperationError};
+
+let handler_error = HandlerError::new(HandlerErrorType::Unavailable, "storage unavailable")
+    .with_retry_behavior(HandlerErrorRetryBehavior::Retryable)
+    .with_source(std::io::Error::other("connection lost"));
+assert_eq!(handler_error.error_type().to_string(), "unavailable");
+
+let operation_error = OperationError::failed("payment declined");
+assert_eq!(operation_error.message(), "payment declined");
+```
+
 ## Verification Commands
 
 Tests exercise typed markers, wire names, and matching metadata through the

@@ -3,6 +3,7 @@
 
 extern crate self as nexus_rpc;
 
+mod error;
 mod service;
 
 /// Implementation details used by generated code.
@@ -22,6 +23,10 @@ pub mod __macro_support {
     }
 }
 
+pub use error::{
+    BoxError, HandlerError, HandlerErrorRetryBehavior, HandlerErrorType, OperationError,
+    OperationErrorState,
+};
 pub use nexus_rpc_macros::{operation, service};
 pub use service::{
     NexusInput, NexusOperation, NexusOutput, NexusService, NexusServiceMetadata,
