@@ -38,6 +38,13 @@ identity contract itself requires only `NexusService::name()`.
 `HandlerError` describes a handler-level protocol failure and its retry policy.
 `OperationError` describes a terminal failed or canceled operation instead.
 Both retain application causes through `std::error::Error::source` without flattening them.
+Use `HandlerError::from_raw_type` and `raw_error_type()` to preserve unrecognized
+protocol codes; `error_type()` maps these to `HandlerErrorType::Unknown`.
+`HandlerErrorType::from_wire_name` recognizes only canonical uppercase names.
+Both error kinds accept an explicit stack trace through `with_stack_trace` and an
+original wire failure through `with_original_failure`. The root-exported, serde-enabled
+`FailureInfo` retains opaque metadata and details, a stack trace, and nested causes
+without interpreting them or replacing the application source chain.
 
 ```rust
 use nexus_rpc::{HandlerError, HandlerErrorRetryBehavior, HandlerErrorType, OperationError};

@@ -24,8 +24,8 @@ pub mod __macro_support {
 }
 
 pub use error::{
-    BoxError, HandlerError, HandlerErrorRetryBehavior, HandlerErrorType, OperationError,
-    OperationErrorState,
+    BoxError, FailureInfo, HandlerError, HandlerErrorRetryBehavior, HandlerErrorType,
+    OperationError, OperationErrorState,
 };
 pub use nexus_rpc_macros::{operation, service};
 pub use service::{

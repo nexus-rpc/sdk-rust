@@ -12,9 +12,11 @@ documentation = "https://docs.rs/nexus-rpc"
 
 [dependencies]
 nexus-rpc-macros = { path = "../nexus-rpc-macros", version = "0.1.0" }
+serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 
 [dev-dependencies]
+serde_json = "1"
 trybuild = "1"
 
 [lints]

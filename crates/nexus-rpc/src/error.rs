@@ -1,10 +1,39 @@
 use std::{
+    collections::HashMap,
     error::Error,
     fmt::{self, Display, Formatter},
 };
 
+use serde::{Deserialize, Serialize};
+
 /// An owned error that can be retained as the cause of a Nexus failure.
 pub type BoxError = Box<dyn Error + Send + Sync + 'static>;
+
+/// A portable failure payload retaining opaque wire metadata and details.
+#[non_exhaustive]
+#[derive(Debug, Clone, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct FailureInfo {
+    pub message: String,
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub metadata: HashMap<String, String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stack_trace: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cause: Option<Box<FailureInfo>>,
+}
+
+impl FailureInfo {
+    /// Creates a failure payload without interpreting its message.
+    pub fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            ..Self::default()
+        }
+    }
+}
 
 /// Protocol error type for a handler-level failure, distinct from an operation's outcome.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -59,6 +88,25 @@ impl HandlerErrorType {
             Self::UpstreamTimeout => "UPSTREAM_TIMEOUT",
         }
     }
+
+    /// Recognizes canonical, case-sensitive protocol wire names.
+    pub fn from_wire_name(name: &str) -> Option<Self> {
+        match name {
+            "UNKNOWN" => Some(Self::Unknown),
+            "BAD_REQUEST" => Some(Self::BadRequest),
+            "UNAUTHENTICATED" => Some(Self::Unauthenticated),
+            "UNAUTHORIZED" => Some(Self::Unauthorized),
+            "NOT_FOUND" => Some(Self::NotFound),
+            "REQUEST_TIMEOUT" => Some(Self::RequestTimeout),
+            "CONFLICT" => Some(Self::Conflict),
+            "RESOURCE_EXHAUSTED" => Some(Self::ResourceExhausted),
+            "INTERNAL" => Some(Self::Internal),
+            "NOT_IMPLEMENTED" => Some(Self::NotImplemented),
+            "UNAVAILABLE" => Some(Self::Unavailable),
+            "UPSTREAM_TIMEOUT" => Some(Self::UpstreamTimeout),
+            _ => None,
+        }
+    }
 }
 
 impl Display for HandlerErrorType {
@@ -80,22 +128,31 @@ pub enum HandlerErrorRetryBehavior {
 
 /// A handler-level failure with protocol classification and optional application cause.
 #[derive(Debug, thiserror::Error)]
-#[error("{error_type}: {message}")]
+#[error("{raw_error_type}: {message}")]
 pub struct HandlerError {
-    error_type: HandlerErrorType,
+    raw_error_type: String,
     message: String,
     retry_behavior: HandlerErrorRetryBehavior,
     source: Option<BoxError>,
+    stack_trace: Option<String>,
+    original_failure: Option<Box<FailureInfo>>,
 }
 
 impl HandlerError {
     /// Creates a handler failure using the error type's default retry behavior.
     pub fn new(error_type: HandlerErrorType, message: impl Into<String>) -> Self {
+        Self::from_raw_type(error_type.as_str(), message)
+    }
+
+    /// Preserves unrecognized protocol codes so they can be forwarded unchanged.
+    pub fn from_raw_type(raw_error_type: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
-            error_type,
+            raw_error_type: raw_error_type.into(),
             message: message.into(),
             retry_behavior: HandlerErrorRetryBehavior::Unspecified,
             source: None,
+            stack_trace: None,
+            original_failure: None,
         }
     }
 
@@ -111,9 +168,36 @@ impl HandlerError {
         self
     }
 
-    /// Returns the protocol error type.
-    pub const fn error_type(&self) -> HandlerErrorType {
-        self.error_type
+    /// Attaches an explicit stack trace independently of the application source.
+    pub fn with_stack_trace(mut self, stack_trace: impl Into<String>) -> Self {
+        self.stack_trace = Some(stack_trace.into());
+        self
+    }
+
+    /// Retains the wire failure without replacing the application source.
+    pub fn with_original_failure(mut self, original_failure: FailureInfo) -> Self {
+        self.original_failure = Some(Box::new(original_failure));
+        self
+    }
+
+    /// Returns the recognized protocol type, or [`HandlerErrorType::Unknown`].
+    pub fn error_type(&self) -> HandlerErrorType {
+        HandlerErrorType::from_wire_name(self.raw_error_type()).unwrap_or(HandlerErrorType::Unknown)
+    }
+
+    /// Returns the original protocol code, including unrecognized codes.
+    pub fn raw_error_type(&self) -> &str {
+        &self.raw_error_type
+    }
+
+    /// Returns the explicit stack trace.
+    pub fn stack_trace(&self) -> Option<&str> {
+        self.stack_trace.as_deref()
+    }
+
+    /// Returns the retained wire failure.
+    pub fn original_failure(&self) -> Option<&FailureInfo> {
+        self.original_failure.as_deref()
     }
 
     /// Returns the error message.
@@ -127,9 +211,9 @@ impl HandlerError {
     }
 
     /// Resolves an unspecified retry policy using the protocol error type.
-    pub const fn effective_retry_behavior(&self) -> HandlerErrorRetryBehavior {
+    pub fn effective_retry_behavior(&self) -> HandlerErrorRetryBehavior {
         match self.retry_behavior {
-            HandlerErrorRetryBehavior::Unspecified => self.error_type.default_retry_behavior(),
+            HandlerErrorRetryBehavior::Unspecified => self.error_type().default_retry_behavior(),
             explicit => explicit,
         }
     }
@@ -142,6 +226,8 @@ pub struct OperationError {
     state: OperationErrorState,
     message: String,
     source: Option<BoxError>,
+    stack_trace: Option<String>,
+    original_failure: Option<Box<FailureInfo>>,
 }
 
 impl OperationError {
@@ -151,6 +237,8 @@ impl OperationError {
             state: OperationErrorState::Failed,
             message: message.into(),
             source: None,
+            stack_trace: None,
+            original_failure: None,
         }
     }
 
@@ -160,6 +248,8 @@ impl OperationError {
             state: OperationErrorState::Canceled,
             message: message.into(),
             source: None,
+            stack_trace: None,
+            original_failure: None,
         }
     }
 
@@ -167,6 +257,28 @@ impl OperationError {
     pub fn with_source(mut self, source: impl Into<BoxError>) -> Self {
         self.source = Some(source.into());
         self
+    }
+
+    /// Attaches an explicit stack trace independently of the application source.
+    pub fn with_stack_trace(mut self, stack_trace: impl Into<String>) -> Self {
+        self.stack_trace = Some(stack_trace.into());
+        self
+    }
+
+    /// Retains the wire failure without replacing the application source.
+    pub fn with_original_failure(mut self, original_failure: FailureInfo) -> Self {
+        self.original_failure = Some(Box::new(original_failure));
+        self
+    }
+
+    /// Returns the explicit stack trace.
+    pub fn stack_trace(&self) -> Option<&str> {
+        self.stack_trace.as_deref()
+    }
+
+    /// Returns the retained wire failure.
+    pub fn original_failure(&self) -> Option<&FailureInfo> {
+        self.original_failure.as_deref()
     }
 
     /// Returns the operation error message.
@@ -216,15 +328,86 @@ mod tests {
             detail: "request 42".into(),
             cause: std::io::Error::other("disk unavailable"),
         });
-        let error = HandlerError::new(HandlerErrorType::Internal, "handler failed")
+        let error = HandlerError::from_raw_type("Future_error/42", "handler failed");
+        assert_eq!(error.raw_error_type(), "Future_error/42");
+        assert_eq!(error.error_type(), HandlerErrorType::Unknown);
+        assert_eq!(
+            error.effective_retry_behavior(),
+            HandlerErrorRetryBehavior::Retryable
+        );
+        let error = error
             .with_retry_behavior(HandlerErrorRetryBehavior::NonRetryable)
             .with_source(source);
-
+        assert_eq!(
+            error.effective_retry_behavior(),
+            HandlerErrorRetryBehavior::NonRetryable
+        );
+        assert_eq!(error.to_string(), "Future_error/42: handler failed");
         let cause = error.source().expect("application cause");
         assert!(cause.downcast_ref::<ApplicationError>().is_some());
         assert_eq!(
             cause.source().expect("root cause").to_string(),
             "disk unavailable"
+        );
+    }
+
+    #[test]
+    fn handler_wire_names_are_case_sensitive() {
+        assert_eq!(
+            HandlerErrorType::from_wire_name("UNKNOWN"),
+            Some(HandlerErrorType::Unknown)
+        );
+        assert_eq!(HandlerErrorType::from_wire_name("unavailable"), None);
+        let error = HandlerError::new(HandlerErrorType::Unavailable, "offline");
+        assert_eq!(error.raw_error_type(), "UNAVAILABLE");
+        assert_eq!(error.error_type(), HandlerErrorType::Unavailable);
+    }
+
+    #[test]
+    fn original_failure_roundtrips_without_interpreting_details() {
+        let wire = serde_json::json!({
+            "message": "original failure",
+            "metadata": {"encoding": "opaque/custom", "extra": "retained"},
+            "details": "not JSON: \u{0000}+/=",
+            "stack_trace": "original stack",
+            "cause": {
+                "message": "nested failure",
+                "details": "{\"opaque\":true}"
+            }
+        });
+        let original: FailureInfo = serde_json::from_value(wire.clone()).expect("wire failure");
+        assert_eq!(
+            serde_json::to_value(&original).expect("serialized failure"),
+            wire
+        );
+        assert_eq!(
+            serde_json::to_value(FailureInfo::new("minimal")).expect("minimal failure"),
+            serde_json::json!({"message": "minimal"})
+        );
+        assert_eq!(
+            serde_json::from_str::<FailureInfo>("{}").expect("default failure"),
+            FailureInfo::default()
+        );
+
+        let handler = HandlerError::new(HandlerErrorType::Internal, "handler failure")
+            .with_original_failure(original.clone())
+            .with_stack_trace("explicit handler stack")
+            .with_source(std::io::Error::other("handler source"));
+        let operation = OperationError::failed("operation failure")
+            .with_stack_trace("explicit operation stack")
+            .with_source(std::io::Error::other("operation source"))
+            .with_original_failure(original.clone());
+        assert_eq!(handler.stack_trace(), Some("explicit handler stack"));
+        assert_eq!(operation.stack_trace(), Some("explicit operation stack"));
+        assert_eq!(handler.original_failure(), Some(&original));
+        assert_eq!(operation.original_failure(), Some(&original));
+        assert_eq!(
+            handler.source().expect("handler source").to_string(),
+            "handler source"
+        );
+        assert_eq!(
+            operation.source().expect("operation source").to_string(),
+            "operation source"
         );
     }
 
