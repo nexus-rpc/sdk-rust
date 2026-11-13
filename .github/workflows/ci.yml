@@ -56,8 +56,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.92.0
-      - run: cargo +1.92.0 check --workspace --all-targets
+      - uses: dtolnay/rust-toolchain@1.88
+      - run: cargo +1.88 check --workspace --all-targets
 
   package:
     name: package
@@ -65,5 +65,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.94
-      - run: cargo package -p nexus-rpc-macros
-      - run: cargo package -p nexus-rpc --list
+      - run: cargo publish -p nexus-rpc-macros -p nexus-rpc --dry-run
