@@ -1,0 +1,23 @@
+[package]
+name = "nexus-rpc"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+readme.workspace = true
+description = "Nexus service definitions and typed operation markers"
+repository = "https://github.com/nexus-rpc/sdk-rust"
+homepage = "https://github.com/nexus-rpc/sdk-rust"
+documentation = "https://docs.rs/nexus-rpc"
+
+[dependencies]
+nexus-rpc-macros = { path = "../nexus-rpc-macros", version = "0.1.0" }
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+
+[dev-dependencies]
+serde_json = "1"
+trybuild = "1"
+
+[lints]
+workspace = true
