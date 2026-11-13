@@ -5,7 +5,6 @@ Service definitions and typed operation markers for Nexus clients and integratio
 - [`nexus-rpc`](crates/nexus-rpc/README.md): public API, examples, and installation.
 - [`nexus-rpc-macros`](crates/nexus-rpc-macros/README.md): procedural macros re-exported
   by `nexus-rpc`.
-- [Releasing](RELEASING.md): initial crates.io publication and subsequent release setup.
 
 ## Verification Commands
 
