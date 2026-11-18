@@ -1,0 +1,107 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: publish-crates
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish crates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: release
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Require a release branch
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" != "refs/heads/main" && ! "$GITHUB_REF_NAME" =~ ^releases/[0-9]+\.[0-9]+\.x$ ]]; then
+            echo "Publishing must be run from main or a releases/<major>.<minor>.x branch; got $GITHUB_REF."
+            exit 1
+          fi
+
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      # Necessary as `cargo publish` builds crates as a check before publishing
+      - name: Set up repository
+        # Rustup uses the version pinned in rust-toolchain.toml.
+        run: cargo --version
+
+      - name: Read release metadata
+        id: release
+        shell: bash
+        run: |
+          metadata="$(cargo metadata --format-version 1 --no-deps)"
+          version="$(jq -er '[.packages[] | select(.name == "nexus-rpc") | .version] | if length == 1 then .[0] else error("expected one nexus-rpc package") end' <<<"$metadata")"
+
+          if [[ "$GITHUB_REF_NAME" =~ ^releases/([0-9]+)\.([0-9]+)\.x$ ]]; then
+            release_line="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
+            if [[ "$version" != "$release_line".* ]]; then
+              echo "SDK version $version does not belong to release branch $GITHUB_REF_NAME."
+              exit 1
+            fi
+          fi
+
+          {
+            echo "version=$version"
+            echo "tag=v$version"
+          } >>"$GITHUB_OUTPUT"
+
+      - name: Generate release notes
+        id: notes
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          previous_tag="$(git describe --tags --match 'v[0-9]*' --exclude "$RELEASE_TAG" --abbrev=0 HEAD 2>/dev/null || true)"
+          echo "previous_sdk_tag=$previous_tag" >> "$GITHUB_OUTPUT"
+          bash .github/scripts/release-notes.sh "$RELEASE_VERSION" > "$RUNNER_TEMP/sdk-release-notes.md"
+
+      - name: Plan crate publication
+        id: publish-plan
+        run: bash .github/scripts/plan-release-publish.sh >>"$GITHUB_OUTPUT"
+
+      - name: Authenticate to crates.io
+        if: steps.publish-plan.outputs.packages != '[]'
+        id: auth
+        uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1
+
+      - name: Publish crates
+        if: steps.publish-plan.outputs.packages != '[]'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+          PUBLISH_PACKAGES: ${{ steps.publish-plan.outputs.packages }}
+        shell: bash
+        run: |
+          jq -e 'type == "array" and length > 0 and all(.[]; type == "string" and length > 0)' \
+            <<<"$PUBLISH_PACKAGES" >/dev/null
+          mapfile -t packages < <(jq -r '.[]' <<<"$PUBLISH_PACKAGES")
+          publish_args=()
+          for package in "${packages[@]}"; do
+            publish_args+=(--package "$package")
+          done
+          cargo publish "${publish_args[@]}"
+
+      - name: Create draft SDK GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_TITLE: nexus-rpc ${{ steps.release.outputs.tag }}
+          PREVIOUS_SDK_TAG: ${{ steps.notes.outputs.previous_sdk_tag }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            --target "$GITHUB_SHA" \
+            --draft \
+            --title "$RELEASE_TITLE" \
+            --notes-file "$RUNNER_TEMP/sdk-release-notes.md" \
+            --generate-notes \
+            --notes-start-tag "$PREVIOUS_SDK_TAG"
